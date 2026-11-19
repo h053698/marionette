@@ -1,0 +1,27 @@
+{$MARIONETTE_CADDY_SITE} {
+	@backend path /api /api/* /auth /auth/* /oauth /oauth/* /.well-known /.well-known/* /downloads /downloads/* /install /install/* /internal/agents /internal/agents/* /internal/runners /internal/runners/*
+	handle @backend {
+		# Keep room for a 1 GiB file plus multipart headers/boundaries.
+		request_body {
+			max_size 2GiB
+		}
+		# Keep the public Host and let Caddy negotiate WebSocket upgrades.
+		# No stream timeout. Give open streams time to reconnect on config reload.
+		reverse_proxy backend:8080 {
+			stream_close_delay 5m
+		}
+	}
+
+	@mcp path /mcp /mcp/*
+	handle @mcp {
+		request_body {
+			max_size 2GiB
+		}
+		reverse_proxy backend:8080 {
+			flush_interval -1
+		}
+	}
+	handle {
+		reverse_proxy web:3000
+	}
+}

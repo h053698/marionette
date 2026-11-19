@@ -1,0 +1,46 @@
+# Local HTTP only. See docs/DEPLOY.md for isolated startup commands.
+services:
+  backend:
+    # The app accepts HTTP OIDC endpoints on loopback. Share Dex's loopback.
+    network_mode: service:dex
+    depends_on:
+      dex:
+        condition: service_healthy
+    environment:
+      MARIONETTE_OIDC_ISSUER: http://127.0.0.1:18556/dex
+      MARIONETTE_OIDC_CLIENT_ID: marionette-local
+      MARIONETTE_OIDC_CLIENT_SECRET: local-dex-example-secret
+      MARIONETTE_OIDC_REDIRECT_URL: http://127.0.0.1:18089/auth/callback
+      MARIONETTE_PUBLIC_URL: http://127.0.0.1:18089
+      MARIONETTE_FRONTEND_ORIGINS: ""
+      MARIONETTE_ADMIN_EMAILS: admin@example.com
+      MARIONETTE_ADMIN_SUBJECTS: ""
+
+  proxy:
+    environment:
+      MARIONETTE_CADDY_SITE: http://127.0.0.1
+    ports: !override
+      - "127.0.0.1:18089:80"
+
+  dex:
+    profiles: [dex]
+    image: ghcr.io/dexidp/dex:v2.44.0
+    command: [dex, serve, /etc/dex/config.yaml]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    ports:
+      - "127.0.0.1:18556:18556"
+    healthcheck:
+      test: [CMD, wget, -q, -T, "3", -O, /dev/null, http://127.0.0.1:18556/dex/healthz]
+      interval: 5s
+      timeout: 4s
+      retries: 6
+    volumes:
+      - ./deploy/docker/dex.yml:/etc/dex/config.yaml:ro
+    networks:
+      default:
+        aliases: [backend]

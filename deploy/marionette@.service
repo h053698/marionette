@@ -1,0 +1,17 @@
+[Unit]
+Description=Marionette %i
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.local/share/marionette
+ExecStart=/bin/bash "%h/.local/share/marionette/scripts/start-service.sh" %i
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Restart=always
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=60
+UMask=0077
+
+[Install]
+WantedBy=default.target

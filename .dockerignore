@@ -1,0 +1,22 @@
+**
+!go.mod
+!go.sum
+!client/
+!client/**
+!cmd/
+!cmd/**
+!internal/
+!internal/**
+!web/
+!web/**
+!scripts/
+!scripts/setup-ubuntu-agent.sh
+
+# Keep local secrets and test-only source out of the image context.
+**/.env*
+**/*.env
+**/*.key
+**/*.pem
+**/*_test.go
+**/*.test.mjs
+**/.DS_Store

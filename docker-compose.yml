@@ -1,0 +1,133 @@
+x-service: &service
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+x-app: &app
+  <<: *service
+  image: ${MARIONETTE_IMAGE:-marionette-server:local}
+  build:
+    context: .
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+
+services:
+  backend:
+    <<: *app
+    environment:
+      MARIONETTE_DATA_DIR: /data/state
+    env_file:
+      - path: ${MARIONETTE_BACKEND_ENV_FILE:-./deploy/docker/backend.env}
+        format: raw
+      - path: ${MARIONETTE_JOBS_ENV_FILE:-./deploy/docker/jobs.env}
+        format: raw
+        required: false
+    volumes:
+      - backend_data:/data
+      - type: bind
+        source: ${MARIONETTE_AGENT_PACKAGES_DIR:-./build}
+        target: /agent-packages
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      # The OIDC origin check uses the original HTTP Host, even on localhost.
+      test:
+        - CMD-SHELL
+        - >-
+          origin=$${MARIONETTE_PUBLIC_URL:-$${MARIONETTE_OIDC_REDIRECT_URL%/auth/callback}};
+          host=$${origin#*://};
+          wget -q -T 3 -O - --header="Host: $${host:-localhost}"
+          http://127.0.0.1:8080/api/session | grep -q '"configured":true'
+      interval: 15s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    stop_grace_period: 30s
+
+  web:
+    <<: *app
+    environment:
+      MARIONETTE_API_URL: ${MARIONETTE_API_URL:-}
+    command: [marionette-web, --listen=0.0.0.0:3000, --web-dir=/app/web]
+    healthcheck:
+      test: [CMD, wget, -q, -T, "3", -O, /dev/null, http://127.0.0.1:3000/]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  proxy:
+    <<: *service
+    image: caddy:2.11-alpine
+    environment:
+      MARIONETTE_CADDY_SITE: ${MARIONETTE_DOMAIN:?set the public hostname in MARIONETTE_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    read_only: true
+    networks:
+      default:
+        # Runner can use the public HTTPS name without going through host NAT.
+        aliases: ["${MARIONETTE_DOMAIN}"]
+    depends_on:
+      - backend
+      - web
+
+  kafka:
+    <<: *service
+    profiles: [kafka]
+    image: apache/kafka:4.3.0
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_RETENTION_HOURS: 168
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: [CMD, /opt/kafka/bin/kafka-topics.sh, --bootstrap-server, 127.0.0.1:9092, --list]
+      interval: 15s
+      timeout: 10s
+      start_period: 30s
+      retries: 4
+    stop_grace_period: 45s
+
+  runner:
+    <<: *app
+    profiles: [runner]
+    command: [marionette-runner]
+    environment:
+      MARIONETTE_BACKEND_URL: https://${MARIONETTE_DOMAIN}
+    env_file:
+      - path: ${MARIONETTE_JOBS_ENV_FILE:-./deploy/docker/jobs.env}
+        format: raw
+    depends_on:
+      backend:
+        condition: service_healthy
+      proxy:
+        condition: service_started
+    stop_grace_period: 30s
+
+volumes:
+  backend_data:
+  caddy_data:
+  caddy_config:
+  kafka_data:
