@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>Marionette · 기기 워크스페이스</title>
+    <!-- 백엔드를 다른 오리진에 두려면 content에 주소를 넣으세요. 비어 있으면 같은 오리진을 씁니다. -->
+    <meta name="marionette-api" content="" />
+    <script src="/config.js"></script>
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/adb.css" />
+    <link rel="stylesheet" href="/connect.css" />
+    <link rel="stylesheet" href="/admin.css" />
+    <link rel="stylesheet" href="/files.css" />
+    <script type="module" src="/app.mjs"></script>
+  </head>
+  <body>
+    <svg
+      class="icon-definitions"
+      aria-hidden="true"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <symbol id="i-grid" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="7" height="7" rx="1.5" />
+          <rect x="14" y="3" width="7" height="7" rx="1.5" />
+          <rect x="3" y="14" width="7" height="7" rx="1.5" />
+          <rect x="14" y="14" width="7" height="7" rx="1.5" />
+        </symbol>
+        <symbol id="i-phone" viewBox="0 0 24 24">
+          <rect x="6" y="2.5" width="12" height="19" rx="2.5" />
+          <path d="M10 5h4m-3 13.5h2" />
+        </symbol>
+        <symbol id="i-search" viewBox="0 0 24 24">
+          <circle cx="10.5" cy="10.5" r="6.5" />
+          <path d="m16 16 4.5 4.5" />
+        </symbol>
+        <symbol id="i-refresh" viewBox="0 0 24 24">
+          <path
+            d="M20 7v5h-5M4 17v-5h5M5.8 7a7 7 0 0 1 11.7-1L20 9M4 15l2.5 3A7 7 0 0 0 18.2 17"
+          />
+        </symbol>
+        <symbol id="i-open" viewBox="0 0 24 24">
+          <path
+            d="M14 4h6v6m0-6-9 9m-1-9H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5"
+          />
+        </symbol>
+        <symbol id="i-close" viewBox="0 0 24 24">
+          <path d="m6 6 12 12M6 18 18 6" />
+        </symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24">
+          <rect x="5" y="10" width="14" height="11" rx="2" />
+          <path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2" />
+        </symbol>
+        <symbol id="i-arrow" viewBox="0 0 24 24">
+          <path d="M4 12h16m-6-6 6 6-6 6" />
+        </symbol>
+        <symbol id="i-pause" viewBox="0 0 24 24">
+          <path d="M8 5v14M16 5v14" />
+        </symbol>
+        <symbol id="i-play" viewBox="0 0 24 24">
+          <path d="m8 4 12 8-12 8Z" />
+        </symbol>
+        <symbol id="i-apps" viewBox="0 0 24 24">
+          <rect x="4" y="4" width="6" height="6" rx="1.5" />
+          <rect x="14" y="4" width="6" height="6" rx="1.5" />
+          <rect x="4" y="14" width="6" height="6" rx="1.5" />
+          <path d="M17 14v6m-3-3h6" />
+        </symbol>
+        <symbol id="i-pulse" viewBox="0 0 24 24">
+          <path d="M3 12h4l2.5-6 4 12 2.5-6H21" />
+        </symbol>
+        <symbol id="i-folder" viewBox="0 0 24 24">
+          <path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        </symbol>
+        <symbol id="i-terminal" viewBox="0 0 24 24">
+          <rect x="3" y="4" width="18" height="16" rx="2.5" />
+          <path d="m7.5 9.5 3 2.5-3 2.5M13 15h4" />
+        </symbol>
+        <symbol id="i-chevron" viewBox="0 0 24 24">
+          <path d="m9 6 6 6-6 6" />
+        </symbol>
+        <symbol id="i-upload" viewBox="0 0 24 24">
+          <path d="M12 16V4m-5 5 5-5 5 5M4 16v4h16v-4" />
+        </symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24">
+          <path d="M12 5v14M5 12h14" />
+        </symbol>
+        <symbol id="i-up" viewBox="0 0 24 24">
+          <path d="M12 19V6m-6 6 6-6 6 6" />
+        </symbol>
+        <symbol id="i-power" viewBox="0 0 24 24">
+          <path d="M12 2v10M6.4 5.8a8 8 0 1 0 11.2 0" />
+        </symbol>
+        <symbol id="i-rotate" viewBox="0 0 24 24">
+          <path d="M20 12a8 8 0 1 1-2.6-5.9M20 4v5h-5" />
+        </symbol>
+        <symbol id="i-download" viewBox="0 0 24 24">
+          <path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5" />
+        </symbol>
+        <symbol id="i-back" viewBox="0 0 24 24">
+          <path d="m14 5-7 7 7 7" />
+        </symbol>
+        <symbol id="i-home" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="7" />
+        </symbol>
+        <symbol id="i-vol-up" viewBox="0 0 24 24">
+          <path d="M4 9.5v5h3.5l5 4v-13l-5 4Zm12 .5a3.5 3.5 0 0 1 0 4m2.5-6.5a7 7 0 0 1 0 9" />
+        </symbol>
+        <symbol id="i-vol-down" viewBox="0 0 24 24">
+          <path d="M4 9.5v5h3.5l5 4v-13l-5 4Zm12 .5a3.5 3.5 0 0 1 0 4" />
+        </symbol>
+        <symbol id="i-recent" viewBox="0 0 24 24">
+          <rect x="5" y="5" width="14" height="14" rx="2" />
+        </symbol>
+      </defs>
+    </svg>
+
+    <div id="loading" class="initial-loading">
+      <span class="brand-mark">m</span
+      ><span>워크스페이스를 확인하고 있어요.</span>
+    </div>
+
+    <section id="login-view" class="login-layout" hidden aria-label="로그인">
+      <aside class="login-aside">
+        <a class="brand brand-light" href="/"
+          ><span class="brand-mark">m</span>marionette</a
+        >
+        <div class="login-intro">
+          <span class="eyebrow">YOUR DEVICE WORKSPACE</span>
+          <h1>모든 모바일 기기를<br />한곳에서.</h1>
+          <p>화면을 확인하고, 연결하고, 함께 테스트하세요.</p>
+          <div class="login-illustration" aria-hidden="true">
+            <div>
+              <span></span><svg><use href="#i-phone" /></svg>
+            </div>
+            <div>
+              <span></span><svg><use href="#i-phone" /></svg>
+            </div>
+            <div>
+              <span></span><svg><use href="#i-phone" /></svg>
+            </div>
+            <div>
+              <span></span><svg><use href="#i-phone" /></svg>
+            </div>
+          </div>
+        </div>
+        <span class="login-aside-foot">Mobile device workspace</span>
+      </aside>
+      <main class="login-main">
+        <div class="login-form">
+          <span class="login-mini-brand">marionette</span>
+          <h2>워크스페이스 로그인</h2>
+          <p>회사 계정으로 로그인하고 기기를 관리하세요.</p>
+          <a
+            id="login-button"
+            class="button primary login-button"
+            href="/auth/login"
+            ><svg><use href="#i-lock" /></svg>SSO로 로그인<svg class="arrow">
+              <use href="#i-arrow" /></svg
+          ></a>
+          <p id="login-hint" class="login-hint" role="status">
+            안전한 회사 로그인 페이지로 이동합니다.
+          </p>
+        </div>
+        <footer>Marionette <span>·</span> Device workspace</footer>
+      </main>
+    </section>
+
+    <div id="app-view" class="app-shell" hidden>
+      <aside class="rail">
+        <a class="rail-brand" href="/" aria-label="Marionette 홈"><span class="brand-mark">m</span><span class="rail-brand-name">marionette</span></a>
+        <nav aria-label="주 메뉴">
+          <span class="rail-section">워크스페이스</span>
+          <a
+            class="rail-link selected"
+            id="nav-devices"
+            href="/"
+            aria-label="기기 모니터링"
+            aria-current="page"
+            ><svg><use href="#i-grid" /></svg><span class="rail-label">기기 모니터링</span></a>
+          <button class="rail-link" id="nav-agents" aria-label="에이전트" hidden><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8m-4-4v4" /></svg><span class="rail-label">에이전트</span></button>
+          <button class="rail-link" id="nav-users" aria-label="사용자" hidden><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.2a6.5 6.5 0 0 1 3.5 5.8" /></svg><span class="rail-label">사용자</span></button>
+        </nav>
+        <div class="rail-bottom">
+          <span class="avatar" id="rail-avatar" aria-hidden="true">M</span>
+        </div>
+      </aside>
+      <div class="app-content">
+        <header class="topbar">
+          <span class="workspace-name">Marionette</span
+          ><span class="breadcrumb">/</span
+          ><span id="breadcrumb-label">기기 모니터링</span
+          ><span class="role-badge" id="role-badge">관리자</span>
+          <div class="profile">
+            <button class="button compact" id="open-tokens">API / MCP</button>
+            <span id="profile-name"></span
+            ><button class="text-button" id="logout">로그아웃</button>
+          </div>
+        </header>
+        <main class="dashboard">
+          <div id="devices-view">
+          <div class="page-heading">
+            <div>
+              <h1 id="page-title">
+                기기 모니터링
+                <span class="heading-count" id="device-count">0</span>
+              </h1>
+              <p id="page-description">연결된 모든 기기를 한눈에 확인하세요.</p>
+            </div>
+            <div class="heading-actions"><button id="assign-device" class="button primary" hidden>기기 배정받기</button>
+            <span class="host-status" id="host-status"
+              ><span class="status-dot"></span
+              ><span id="host-label">호스트 확인 중</span></span
+            ></div>
+          </div>
+          <section class="my-assignment" id="my-assignment" aria-label="내 배정" hidden>
+            <div class="assignment-limit">
+              <span class="assignment-label">내 배정</span>
+              <strong id="assignment-limit">1대 중 0대 사용 중</strong>
+              <span class="assignment-note">계정당 한 번에 1대까지</span>
+            </div>
+            <div class="assignment-body" id="assignment-body" hidden>
+              <div class="assignment-device">
+                <strong id="assignment-name"></strong>
+                <span id="assignment-serial"></span>
+              </div>
+              <div class="assignment-time">
+                <strong id="assignment-until"></strong>
+                <span id="assignment-remaining"></span>
+                <div class="meter" aria-hidden="true"><span id="assignment-meter"></span></div>
+              </div>
+              <div class="assignment-actions">
+                <button class="button primary compact" id="assignment-resume" type="button">조작 이어가기</button>
+                <button class="button compact danger" id="assignment-release" type="button">반납</button>
+              </div>
+            </div>
+            <p class="assignment-help" id="assignment-help"></p>
+          </section>
+          <div class="toolbar">
+            <label class="search-box"
+              ><svg><use href="#i-search" /></svg
+              ><input
+                id="search"
+                type="search"
+                placeholder="모델명 또는 시리얼 검색"
+                autocomplete="off"
+                aria-label="기기 검색"
+              /><kbd>/</kbd></label
+            >
+            <div class="filter-picker" id="filter-picker" hidden></div>
+            <div class="view-tools">
+              <label class="density-label" for="density"
+                >화면 크기<input
+                  id="density"
+                  type="range"
+                  min="120"
+                  max="240"
+                  step="8"
+                  value="128"
+                  aria-label="기기 화면 크기" /></label
+              ><button
+                class="button compact"
+                id="toggle-live"
+                aria-pressed="true"
+              >
+                <svg><use href="#i-pause" /></svg><span>일시정지</span></button
+              ><button
+                class="button icon-button"
+                id="refresh"
+                aria-label="기기 새로고침"
+              >
+                <svg><use href="#i-refresh" /></svg>
+              </button>
+            </div>
+          </div>
+          <section
+            class="device-board"
+            id="device-board"
+            aria-label="모바일 기기 화면"
+          >
+            <div class="device-grid" id="device-grid"></div>
+            <div class="board-empty" id="board-empty" hidden>
+              <svg><use href="#i-phone" /></svg>
+              <h2 id="empty-title">연결된 기기가 없어요</h2>
+              <p id="empty-description">
+                기기를 연결한 뒤 다시 확인해 주세요.
+              </p>
+            </div>
+          </section>
+          <div class="board-footer">
+            <span
+              ><span class="live-dot"></span
+              ><span id="board-summary">기기를 확인하고 있어요.</span></span
+            ><span id="last-updated">—</span>
+          </div>
+          </div>
+          <section id="agents-view" hidden aria-label="에이전트">
+            <div class="page-heading">
+              <div>
+                <h1>에이전트 <span class="heading-count" id="agent-count">0</span></h1>
+                <p>휴대폰을 USB로 꽂아 둔 PC입니다. 연결 상태, 운영 방식, 가지고 있는 기기를 확인하세요.</p>
+              </div>
+              <div class="heading-actions"><button class="button primary" id="add-agent">에이전트 연결</button></div>
+            </div>
+            <div class="adm-stats" id="agent-summary" aria-label="에이전트 요약"></div>
+            <p class="helper adm-status" id="agents-status" role="status"></p>
+            <div class="adm-table adm-agents" id="agent-table">
+              <div class="adm-head" aria-hidden="true"><span>에이전트</span><span>상태</span><span>OS · CPU</span><span>운영 방식</span><span>기기</span><span>마지막 연결</span><span></span></div>
+              <div id="agent-list" role="list"></div>
+            </div>
+            <div class="adm-empty" id="agents-empty" hidden>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8m-4-4v4" /></svg>
+              <h2>아직 연결된 에이전트가 없어요</h2>
+              <p>에이전트는 휴대폰이 USB로 연결된 PC에서 실행하는 작은 프로그램이에요. 연결하면 그 PC의 기기가 이 화면에 나타납니다.</p>
+              <button class="button primary" id="add-agent-empty" type="button">에이전트 연결</button>
+            </div>
+          </section>
+          <section id="users-view" hidden aria-label="사용자">
+            <div class="page-heading">
+              <div>
+                <h1>사용자 <span class="heading-count" id="user-count">0</span></h1>
+                <p>이 웹사이트에 로그인한 적이 있는 사용자입니다. 누가 지금 접속 중이고 어떤 기기를 쓰는지 확인하세요.</p>
+              </div>
+              <div class="heading-actions"><button class="button icon-button" id="refresh-users" type="button" aria-label="사용자 새로고침"><svg><use href="#i-refresh" /></svg></button></div>
+            </div>
+            <div class="adm-stats" id="user-summary" aria-label="사용자 요약"></div>
+            <div class="adm-toolbar"><label class="search-box"><svg><use href="#i-search" /></svg><input id="user-search" type="search" placeholder="이름, 이메일, 기기 검색" autocomplete="off" aria-label="사용자 검색" /></label></div>
+            <p class="helper adm-status" id="users-status" role="status"></p>
+            <div class="adm-table adm-users" id="user-table">
+              <div class="adm-head" aria-hidden="true"><span>사용자</span><span>권한</span><span>접속</span><span>마지막 로그인</span><span>토큰</span><span>사용 중인 기기</span></div>
+              <div id="user-list" role="list"></div>
+            </div>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <dialog id="device-dialog" aria-labelledby="device-title">
+      <div class="dialog-header">
+        <div>
+          <h2 id="device-title">모바일 기기</h2>
+          <p id="device-detail"></p>
+        </div>
+        <span class="device-state" id="detail-state"></span
+        ><button
+          class="icon-button plain"
+          id="close-device"
+          aria-label="기기 창 닫기"
+        >
+          <svg><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <div class="detail-layout">
+        <div class="screen-column">
+          <div class="screen-stage" id="screen-stage">
+            <div class="screen-placeholder" id="screen-placeholder">
+              <svg><use href="#i-phone" /></svg
+              ><strong id="screen-message">화면을 준비하고 있어요</strong>
+              <p id="screen-hint"></p>
+            </div>
+            <canvas
+              id="screen"
+              hidden
+              aria-label="기기 화면. 클릭하거나 드래그하여 조작하세요."
+            ></canvas>
+            <textarea
+              id="text-input"
+              class="sr-only"
+              rows="1"
+              maxlength="4096"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              aria-label="기기에 입력할 텍스트"
+              disabled
+            ></textarea>
+          </div>
+          <div class="navigation" aria-label="Android 탐색">
+            <button
+              class="nav-button"
+              data-key="4"
+              disabled
+              aria-label="뒤로 가기"
+            >
+              <svg><use href="#i-back" /></svg></button
+            ><button class="nav-button" data-key="3" disabled aria-label="홈">
+              <svg><use href="#i-home" /></svg></button
+            ><button
+              class="nav-button"
+              data-key="187"
+              disabled
+              aria-label="최근 앱"
+            >
+              <svg><use href="#i-recent" /></svg>
+            </button>
+          </div>
+          <div class="stream-stats">
+            <span id="resolution">화면 대기 중</span
+            ><span class="live-badge" id="live-badge" hidden
+              ><span></span>LIVE</span
+            ><span id="frame-rate">— fps</span>
+          </div>
+        </div>
+        <aside class="tools-pane">
+          <section class="lease-info" id="lease-info" hidden aria-label="내 점유">
+            <div class="lease-head"><span>내 점유 · 1대 중 1대 사용 중</span><strong id="lease-remaining" aria-live="off"></strong></div>
+            <div class="meter" aria-hidden="true"><span id="lease-meter"></span></div>
+            <p class="lease-until"><span id="lease-expiry"></span>까지 사용할 수 있어요. <span id="lease-owner" hidden></span></p>
+            <p class="helper">이 브라우저가 열려 있는 동안 90초마다 5분씩 자동 연장돼요. 브라우저를 닫아 갱신이 멈추면 만료 시각에 반납됩니다.</p>
+          </section>
+          <div class="connection-actions">
+            <button class="button primary full-width" id="connect">
+              점유하고 조작</button
+            ><button class="button full-width" id="release" hidden>
+              기기 반납
+            </button>
+            <p class="helper" id="connection-hint">
+              화면을 보는 동안에도 다른 사용자가 기기를 사용할 수 있어요.
+            </p>
+          </div>
+          <section class="tool-section" id="admin-lease" hidden>
+            <h3>점유 관리</h3>
+            <div class="info-row"><span>현재 사용자</span><strong id="admin-owner"></strong></div>
+            <div class="info-row"><span>만료</span><strong id="admin-expiry"></strong></div>
+            <p class="helper">기존 사용자의 화면 연결과 조작 권한이 종료됩니다.</p>
+            <div class="admin-lease-actions" id="admin-lease-actions">
+              <button class="button" id="admin-takeover">점유 가져오기</button>
+              <button class="button danger" id="admin-disconnect">연결 끊기</button>
+            </div>
+          </section>
+          <section class="tool-section" id="admin-cleanup" hidden>
+            <h3>정리 관리</h3>
+            <p class="helper">정리가 끝나지 않아 다른 사용자에게 배정되지 않아요.</p>
+            <div class="admin-lease-actions">
+              <button class="button danger" id="admin-cleanup-retry" type="button">다시 정리</button>
+              <button class="button" id="admin-cleanup-restore" type="button">정리 없이 복귀</button>
+            </div>
+          </section>
+          <section class="tool-section">
+            <h3>기기 동작</h3>
+            <div class="action-grid">
+              <button class="button" data-key="26" disabled>
+                <svg><use href="#i-power" /></svg>전원</button
+              ><button class="button" id="snapshot" disabled>
+                <svg><use href="#i-download" /></svg>화면 저장</button
+              ><button class="button" id="rotate" disabled>
+                <svg><use href="#i-rotate" /></svg>가로·세로</button
+              ><button class="button" data-key="24" disabled>
+                <svg><use href="#i-vol-up" /></svg>음량 +</button
+              ><button class="button" data-key="25" disabled>
+                <svg><use href="#i-vol-down" /></svg>음량 −</button
+              >
+            </div>
+          </section>
+          <section class="tool-section" id="device-tools" hidden>
+            <h3>도구</h3>
+            <div class="tool-list">
+              <button class="tool-row" id="open-apps" type="button">
+                <span class="tool-icon"><svg><use href="#i-apps" /></svg></span>
+                <span class="tool-copy"><strong>앱 관리</strong><span>앱 실행 · 삭제 · APK 설치</span></span>
+                <svg class="tool-chevron"><use href="#i-chevron" /></svg>
+              </button>
+              <button class="tool-row" id="open-processes" type="button">
+                <span class="tool-icon"><svg><use href="#i-pulse" /></svg></span>
+                <span class="tool-copy"><strong>실행 중인 프로세스</strong><span>메모리 사용량 · PID · 검색</span></span>
+                <svg class="tool-chevron"><use href="#i-chevron" /></svg>
+              </button>
+              <button class="tool-row" id="open-files" type="button" disabled>
+                <span class="tool-icon"><svg><use href="#i-folder" /></svg></span>
+                <span class="tool-copy"><strong>파일 관리</strong><span>폴더 탐색 · 업로드 · 받기 · 삭제</span></span>
+                <svg class="tool-chevron"><use href="#i-chevron" /></svg>
+              </button>
+              <button class="tool-row" id="open-adb" type="button">
+                <span class="tool-icon"><svg><use href="#i-terminal" /></svg></span>
+                <span class="tool-copy"><strong>Android Studio · ADB</strong><span>내 PC의 개발 도구로 연결</span></span>
+                <svg class="tool-chevron"><use href="#i-chevron" /></svg>
+              </button>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </dialog>
+    <dialog id="assign-dialog" class="tool-dialog compact" aria-labelledby="assign-title">
+      <div class="dialog-header">
+        <div><h2 id="assign-title">기기 배정받기</h2><p class="tool-subtitle">한 계정은 한 번에 한 대만 사용할 수 있어요.</p></div>
+        <button class="icon-button plain" id="close-assign" aria-label="닫기" type="button"><svg><use href="#i-close" /></svg></button>
+      </div>
+      <div class="assign-body">
+        <div class="choices" id="assign-kinds" role="radiogroup" aria-label="기기 종류"></div>
+        <div class="choices list" id="assign-devices" role="radiogroup" aria-label="사용할 실물 기기" hidden></div>
+        <p class="helper" id="assign-note" role="status"></p>
+        <button class="button primary wide-button" id="assign-confirm" type="button" disabled>배정받기</button>
+      </div>
+    </dialog>
+    <dialog id="apps-dialog" class="tool-dialog" aria-labelledby="apps-title">
+      <div class="dialog-header">
+        <div><h2 id="apps-title">앱 관리</h2><p class="tool-subtitle" id="apps-subtitle"></p></div>
+        <button class="icon-button plain" id="close-apps" aria-label="앱 관리 닫기" type="button"><svg><use href="#i-close" /></svg></button>
+      </div>
+      <div class="tool-body">
+        <div class="tool-bar">
+          <label class="sr-only" for="app-search">앱 이름 또는 패키지 검색</label>
+          <input id="app-search" type="search" placeholder="앱 이름 또는 패키지 검색" autocomplete="off" />
+          <button class="button icon-button" id="refresh-apps" type="button" aria-label="앱 목록 새로고침"><svg><use href="#i-refresh" /></svg></button>
+          <button class="button primary" id="install-apk" type="button"><svg><use href="#i-upload" /></svg>APK 설치</button>
+          <input id="apk-input" type="file" accept=".apk,application/vnd.android.package-archive" hidden />
+        </div>
+        <div class="segmented" role="group" aria-label="앱 종류">
+          <button id="apps-filter-all" type="button" aria-pressed="true">전체 <span id="apps-count"></span></button>
+          <button id="apps-filter-user" type="button" aria-pressed="false">설치한 앱 <span id="apps-user-count"></span></button>
+        </div>
+        <p class="helper tool-status" id="app-status" role="status">앱 목록을 불러오고 있어요.</p>
+        <div class="app-list" id="app-list" aria-label="기기에 설치된 앱"></div>
+        <div class="transfers" id="apk-transfers" hidden aria-live="polite"></div>
+      </div>
+    </dialog>
+    <dialog id="processes-dialog" class="tool-dialog" aria-labelledby="processes-title">
+      <div class="dialog-header">
+        <div><h2 id="processes-title">실행 중인 프로세스</h2><p class="tool-subtitle" id="processes-subtitle"></p></div>
+        <button class="icon-button plain" id="close-processes" aria-label="프로세스 창 닫기" type="button"><svg><use href="#i-close" /></svg></button>
+      </div>
+      <div class="tool-body">
+        <div class="tool-bar">
+          <label class="sr-only" for="process-search">프로세스 이름, PID 또는 UID 검색</label>
+          <input id="process-search" type="search" placeholder="프로세스 이름 · PID · UID 검색" autocomplete="off" />
+          <button class="button icon-button" id="refresh-processes" type="button" aria-label="프로세스 새로고침"><svg><use href="#i-refresh" /></svg></button>
+        </div>
+        <div class="process-toolbar"><label><input id="process-auto" type="checkbox" checked /> 5초마다 갱신</label><time id="process-updated" aria-label="마지막 갱신"></time></div>
+        <p class="helper tool-status" id="process-status" role="status">실행 중인 프로세스를 불러오고 있어요.</p>
+        <div class="process-list" id="process-list" role="list" aria-label="실행 중인 앱 및 시스템 프로세스"></div>
+      </div>
+    </dialog>
+    <dialog id="files-dialog" class="tool-dialog wide" aria-labelledby="files-title">
+      <div class="dialog-header">
+        <div><h2 id="files-title">파일 관리</h2><p class="tool-subtitle">기기의 내장 저장공간(/sdcard)만 열 수 있어요.</p></div>
+        <button class="icon-button plain" id="close-files" aria-label="파일 관리 닫기" type="button"><svg><use href="#i-close" /></svg></button>
+      </div>
+      <div class="tool-body files-body" id="files-drop">
+        <div class="files-places" id="files-places" aria-label="자주 가는 폴더"></div>
+        <div class="files-bar">
+          <button class="button icon-button" id="files-up" type="button" aria-label="상위 폴더"><svg><use href="#i-up" /></svg></button>
+          <nav class="files-path" id="files-path" aria-label="현재 위치"></nav>
+          <button class="button icon-button" id="files-refresh" type="button" aria-label="새로고침"><svg><use href="#i-refresh" /></svg></button>
+          <button class="button" id="files-mkdir" type="button"><svg><use href="#i-plus" /></svg>새 폴더</button>
+          <button class="button primary" id="files-upload" type="button"><svg><use href="#i-upload" /></svg>업로드</button>
+          <input id="files-input" type="file" multiple hidden />
+        </div>
+        <p class="helper tool-status" id="files-status" role="status"></p>
+        <div class="file-list" id="file-list" role="list" aria-label="폴더 내용"></div>
+        <div class="files-empty" id="files-empty" hidden><svg><use href="#i-folder" /></svg><p>비어 있는 폴더예요.<br />파일을 끌어다 놓거나 업로드를 눌러 보세요.</p></div>
+        <div class="transfers" id="transfers" hidden aria-live="polite"></div>
+        <div class="drop-hint" aria-hidden="true"><svg><use href="#i-upload" /></svg><strong>여기에 놓아 업로드</strong></div>
+      </div>
+    </dialog>
+    <dialog id="prompt-dialog" class="prompt-dialog" aria-labelledby="prompt-title" aria-describedby="prompt-message">
+      <form id="prompt-form" method="dialog" novalidate>
+        <div class="dialog-header">
+          <h2 id="prompt-title"></h2>
+          <button class="icon-button plain" id="prompt-close" aria-label="닫기" type="button"><svg><use href="#i-close" /></svg></button>
+        </div>
+        <div class="prompt-body">
+          <p class="prompt-message" id="prompt-message"></p>
+          <label class="prompt-field" id="prompt-field" for="prompt-input" hidden>
+            <span id="prompt-label"></span>
+            <input id="prompt-input" type="text" autocomplete="off" />
+          </label>
+          <p class="prompt-error" id="prompt-error" role="alert" hidden></p>
+        </div>
+        <div class="prompt-actions">
+          <button class="button" id="prompt-cancel" type="button">취소</button>
+          <button class="button primary" id="prompt-submit" type="submit">확인</button>
+          <span id="prompt-choices"></span>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="adb-dialog" aria-labelledby="adb-title">
+      <div class="dialog-header">
+        <div><h2 id="adb-title">Android Studio · ADB로 연결</h2><p class="adb-subtitle" id="adb-device"></p></div>
+        <button class="icon-button plain" id="close-adb" aria-label="ADB 연결 창 닫기" type="button"><svg><use href="#i-close" /></svg></button>
+      </div>
+      <div class="adb-content">
+        <ol class="adb-steps">
+          <li>
+            <strong>준비 (처음 한 번)</strong>
+            <span>내 PC에 <code>adb</code>(Android SDK Platform-Tools)와 Marionette CLI(<code>marionette</code>)를 설치하고 PATH에서 실행되는지 확인하세요.</span>
+          </li>
+          <li>
+            <strong>개인 토큰 설정</strong>
+            <span>상단 <b>API / MCP</b>에서 발급한 개인 토큰을 터미널에 <code>MARIONETTE_TOKEN</code> 환경 변수로 설정하세요. 토큰이 없으면 아래 명령이 실패해요.</span>
+            <code class="adb-token-example">read -r MARIONETTE_TOKEN; export MARIONETTE_TOKEN</code>
+          </li>
+          <li>
+            <strong>연결 코드 만들고 실행</strong>
+            <span>코드는 <b>90초</b> 안에 한 번만 쓸 수 있어요. 만료되면 새 코드를 만드세요.</span>
+            <div class="adb-code-row">
+              <button class="button primary compact" id="create-handoff" type="button">연결 코드 만들기</button>
+              <span class="adb-countdown" id="adb-countdown" hidden>남은 시간 <time id="adb-expiry"></time></span>
+            </div>
+            <div class="adb-handoff" id="adb-code" hidden>
+              <div class="command-box">
+                <div class="command-bar"><span>터미널에 붙여넣기</span><button class="text-button" id="copy-adb" type="button">복사</button></div>
+                <pre><code id="adb-command"></code></pre>
+              </div>
+            </div>
+          </li>
+          <li>
+            <strong>Android Studio에서 선택</strong>
+            <span><code>marionette</code> 명령을 켜 둔 채 Android Studio 기기 목록에서 이 기기를 고르세요. 명령을 끄면 연결도 끝나요.</span>
+          </li>
+        </ol>
+        <p class="helper adb-status" id="adb-status" role="status" hidden></p>
+        <p class="adb-note"><b>연결하면 브라우저 조작은 종료돼요.</b> 기기 제어가 내 PC의 CLI로 넘어가고, 기기는 계속 내게 배정된 상태로 남아요. 점유 연장도 CLI가 대신하므로 반납하려면 CLI에서 <code>marionette release</code>를 실행하세요.</p>
+      </div>
+    </dialog>
+    <dialog id="agent-connect-dialog" aria-labelledby="agent-connect-title">
+      <div class="dialog-header">
+        <div><h2 id="agent-connect-title">에이전트 연결</h2><p class="adm-sub">휴대폰이나 에뮬레이터를 운영할 PC를 연결합니다.</p></div>
+        <button class="icon-button plain" id="close-agent-connect" aria-label="에이전트 연결 닫기" type="button"><svg><use href="#i-close" /></svg></button>
+      </div>
+      <div class="adm-dialog-body">
+        <ol class="adm-steps">
+          <li class="adm-step is-current" id="connect-step-1">
+            <span class="adm-step-no">1</span>
+            <div class="adm-step-body">
+              <h3>에이전트 ID와 이름 정하기</h3>
+              <p class="helper">PC마다 ID가 달라야 해요. 영문, 숫자, - 와 _ 만 쓸 수 있어요.</p>
+              <form id="agent-register-form" class="adm-form-grid">
+                <label>에이전트 ID<input id="new-agent-id" pattern="[a-zA-Z0-9][a-zA-Z0-9_\-]{0,63}" maxlength="64" placeholder="예: office-mac" required autocomplete="off" /></label>
+                <label>이름<input id="new-agent-name" maxlength="60" placeholder="예: 사무실 테스트 Mac" required autocomplete="off" /></label>
+                <button class="button primary" id="register-agent" type="submit">연결 명령 만들기</button>
+              </form>
+              <p id="agent-connect-status" class="adm-error" role="alert" hidden></p>
+            </div>
+          </li>
+          <li class="adm-step is-pending" id="connect-step-2">
+            <span class="adm-step-no">2</span>
+            <div class="adm-step-body">
+              <h3>대상 PC에서 명령 실행하기</h3>
+              <p class="helper" id="agent-install-pending">ID를 등록하면 대상 PC에서 실행할 명령이 여기에 표시돼요.</p>
+              <section id="new-agent-secret" class="adm-command" hidden>
+                <div class="tool-tabs adm-install-tabs" id="agent-install-tabs" role="tablist" aria-label="설치 방법">
+                  <button id="agent-install-tab-ubuntu" type="button" role="tab" aria-controls="agent-install-ubuntu" aria-selected="true">Ubuntu <small>(권장)</small></button>
+                  <button id="agent-install-tab-package" type="button" role="tab" aria-controls="agent-install-package" aria-selected="false" tabindex="-1">직접 설치(패키지)</button>
+                </div>
+                <div class="adm-install-panel" id="agent-install-ubuntu" role="tabpanel" aria-labelledby="agent-install-tab-ubuntu">
+                  <p class="helper">Ubuntu PC의 터미널에 붙여넣으세요. <code>curl</code>이 필요하며 <code>sudo</code>가 필요한 작업은 실행 전에 확인을 요청해요.</p>
+                  <label class="adm-switch adm-install-option"><span><strong>에뮬레이터도 돌리기</strong></span><input id="agent-install-emulator" type="checkbox" role="switch" /></label>
+                  <pre class="adm-command-text"><code id="agent-ubuntu-command"></code></pre>
+                  <div class="adm-command-actions">
+                    <button class="button compact" id="copy-agent-ubuntu" type="button">명령 복사</button>
+                  </div>
+                </div>
+                <div class="adm-install-panel" id="agent-install-package" role="tabpanel" aria-labelledby="agent-install-tab-package" hidden>
+                  <p class="helper">macOS 또는 Linux에서 패키지를 풀고 <code>adb</code>를 준비한 뒤 패키지 폴더에서 실행하세요. 에뮬레이터를 쓰려면 Android SDK와 JDK도 필요해요.</p>
+                  <pre class="adm-command-text"><code id="agent-connect-command"></code></pre>
+                  <div class="adm-command-actions">
+                    <button class="button compact" id="copy-agent-command" type="button">명령 복사</button>
+                    <button class="text-button" id="copy-agent-env" type="button">.env 내용 복사</button>
+                  </div>
+                  <p class="helper">항상 켜 두려면 같은 값을 패키지 폴더의 <code>.env</code>에 저장하고 <code>bash start-agent.sh</code>로 실행하세요.</p>
+                </div>
+                <p class="helper adm-warn-note">연결 토큰은 지금 한 번만 보여요. 창을 닫으면 다시 볼 수 없어요.</p>
+                <p class="helper" id="agent-connect-note"></p>
+                <p class="helper">실물 기기는 USB 디버깅을 켜고 휴대폰에서 PC 인증을 허용하세요.</p>
+              </section>
+            </div>
+          </li>
+          <li class="adm-step is-pending" id="connect-step-3">
+            <span class="adm-step-no">3</span>
+            <div class="adm-step-body">
+              <h3>연결되면 목록에 자동으로 나타나요</h3>
+              <p class="adm-wait" id="agent-connect-wait" role="status">위 단계를 마치면 이 창에서 연결 여부를 확인해요.</p>
+              <p class="helper" id="agent-connect-help" hidden>아직 연결되지 않았어요. 토큰과 ID가 명령과 같은지, PC가 이 서버 주소에 접속할 수 있는지, 같은 ID로 다른 PC가 이미 연결 중은 아닌지 확인하세요.</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+      <div class="adm-dialog-actions">
+        <button class="button" id="open-connected-config" type="button" hidden>운영 설정 열기</button>
+        <button class="button primary" id="done-agent-connect" type="button">닫기</button>
+      </div>
+    </dialog>
+    <dialog id="agent-detail-dialog" aria-labelledby="agent-detail-title">
+      <div class="dialog-header">
+        <div><h2 id="agent-detail-title">에이전트</h2><p id="agent-detail-sub"></p></div>
+        <span class="badge" id="agent-detail-state"></span>
+        <button class="icon-button plain" id="close-agent-detail" aria-label="닫기" type="button"><svg><use href="#i-close" /></svg></button>
+      </div>
+      <div class="adm-dialog-body">
+        <dl class="adm-facts" id="agent-detail-facts"></dl>
+        <section class="adm-resources" aria-label="PC 자원 사용량">
+          <h3 class="adm-section-title">PC 자원 <small id="agent-detail-sampled"></small></h3>
+          <div class="adm-meters" id="agent-detail-meters"></div>
+        </section>
+        <p class="adm-error" id="agent-detail-error" hidden></p>
+        <section>
+          <h3 class="adm-section-title">이 에이전트의 기기 <span id="agent-detail-count"></span></h3>
+          <p class="helper" id="agent-detail-note" hidden></p>
+          <div class="adm-table adm-devices" id="agent-detail-table">
+            <div class="adm-head" aria-hidden="true"><span>기기</span><span>종류</span><span>상태</span><span>사용자</span></div>
+            <div id="agent-detail-devices" role="list"></div>
+          </div>
+        </section>
+      </div>
+      <div class="adm-dialog-actions">
+        <button class="button" id="agent-detail-config" type="button">운영 설정</button>
+        <button class="button primary" id="agent-detail-close" type="button">닫기</button>
+      </div>
+    </dialog>
+    <dialog id="agent-config-dialog" aria-labelledby="agent-config-title">
+      <form id="agent-config-form" novalidate>
+        <div class="dialog-header">
+          <div><h2 id="agent-config-title">운영 설정</h2><p id="agent-config-sub"></p></div>
+          <button class="icon-button plain" id="close-agent-config" aria-label="닫기" type="button"><svg><use href="#i-close" /></svg></button>
+        </div>
+        <div class="adm-dialog-body">
+          <fieldset class="adm-field">
+            <legend>운영 방식</legend>
+            <div class="adm-radio-cards" id="agent-config-modes" role="radiogroup" aria-label="운영 방식"></div>
+          </fieldset>
+          <div class="adm-field-row" id="agent-config-emulator">
+            <div class="adm-field"><span class="adm-label">유지할 가상 기기</span><div id="agent-config-count"></div></div>
+            <div class="adm-field"><span class="adm-label">Android 이미지</span><div id="agent-config-image"></div></div>
+          </div>
+          <p class="helper" id="agent-config-hint"></p>
+          <div class="adm-switches">
+            <label class="adm-switch"><span><strong>충전 중 화면 유지</strong><small>실물 기기가 충전 중이면 화면이 꺼지지 않게 해요. 잠금(PIN)은 풀지 않아요.</small></span><input id="agent-config-awake" type="checkbox" role="switch" /></label>
+            <label class="adm-switch"><span><strong>컨트롤러 상시 대기</strong><small>기기마다 조작 프로그램을 미리 켜 둬서 연결하자마자 바로 조작할 수 있어요.</small></span><input id="agent-config-warm" type="checkbox" role="switch" /></label>
+          </div>
+          <p class="adm-error" id="agent-config-error" role="alert" hidden></p>
+        </div>
+        <div class="adm-dialog-actions">
+          <button class="button" id="cancel-agent-config" type="button">취소</button>
+          <button class="button primary" id="save-agent-config" type="submit">저장</button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="user-detail-dialog" aria-labelledby="user-detail-title">
+      <div class="dialog-header">
+        <div><h2 id="user-detail-title">사용자</h2><p id="user-detail-sub"></p></div>
+        <span class="badge" id="user-detail-role"></span>
+        <button class="icon-button plain" id="close-user-detail" aria-label="닫기" type="button"><svg><use href="#i-close" /></svg></button>
+      </div>
+      <div class="adm-dialog-body">
+        <dl class="adm-facts" id="user-detail-facts"></dl>
+        <section id="user-detail-device" class="adm-device-box" hidden>
+          <h3 class="adm-section-title">지금 사용 중인 기기</h3>
+          <p id="user-detail-device-text"></p>
+          <div class="adm-confirm" id="user-detail-disconnect-row" hidden>
+            <button class="button danger" id="user-detail-disconnect" type="button">이 사용자의 기기 연결 끊기</button>
+            <p class="helper" id="user-detail-disconnect-note" role="status">사용자의 화면 연결과 조작 권한이 바로 종료돼요.</p>
+          </div>
+        </section>
+      </div>
+      <div class="adm-dialog-actions"><button class="button primary" id="user-detail-close" type="button">닫기</button></div>
+    </dialog>
+    <dialog id="token-dialog" aria-labelledby="token-title">
+      <div class="dialog-header">
+        <h2 id="token-title">API / MCP 연결</h2>
+        <button class="icon-button plain" id="close-tokens" aria-label="연결 설정 닫기"><svg><use href="#i-close" /></svg></button>
+      </div>
+      <div class="token-content">
+        <section class="token-guide-head">
+          <p class="token-intro">자동화 도구나 AI 에이전트가 내 계정으로 기기를 조작할 수 있게 연결해요. MCP 클라이언트(Claude 등)는 <b>로그인만으로</b> 연결되고, CLI·REST·Android Studio는 토큰을 만들어 설정에 붙여 넣으면 됩니다.</p>
+          <ul class="token-facts" aria-label="알아둘 규칙">
+            <li>계정당 동시에 <b>1대</b>만 배정</li>
+            <li>배정은 <b>5분</b> 단위, 연결이 살아 있으면 자동 연장</li>
+            <li>토큰은 <b>내 계정 권한</b>(일반 사용자)으로만 동작</li>
+            <li>만료일 최대 <b>90일</b></li>
+            <li>토큰은 최대 <b>20개</b></li>
+          </ul>
+        </section>
+        <ol class="token-stepper" id="token-stepper" aria-label="설정 순서">
+          <li data-step="1" class="is-current"><button type="button" class="step-link"><span class="step-num">1</span><span class="step-label">토큰 만들기</span></button></li>
+          <li data-step="2"><button type="button" class="step-link"><span class="step-num">2</span><span class="step-label">도구 설정</span></button></li>
+          <li data-step="3"><button type="button" class="step-link"><span class="step-num">3</span><span class="step-label">연결 확인</span></button></li>
+          <li data-step="4"><button type="button" class="step-link"><span class="step-num">4</span><span class="step-label">반납·주의</span></button></li>
+        </ol>
+
+        <section class="token-step" id="token-step-1" aria-labelledby="token-step-1-title">
+          <h3 id="token-step-1-title"><span class="step-num">1</span>토큰 만들기</h3>
+          <p class="helper">토큰은 도구가 나를 대신해 로그인하는 열쇠예요. 도구마다 하나씩 만들어 두면 따로 폐기할 수 있어요.</p>
+          <form id="token-form" class="token-form">
+            <label>토큰 이름<input id="token-name" required maxlength="100" placeholder="예: 내 노트북 Claude" autocomplete="off" /></label>
+            <div class="token-field"><span class="token-field-label" id="token-days-label">유효기간</span><div id="token-days-mount"></div></div>
+            <button class="button primary" id="create-token" type="submit">토큰 만들기</button>
+          </form>
+          <p id="token-status" class="helper" role="status"></p>
+          <section id="new-token" class="new-token" hidden>
+            <label for="token-secret">발급한 토큰</label>
+            <div class="token-secret-row"><input id="token-secret" readonly spellcheck="false" autocomplete="off" /><button class="button compact" id="copy-token" type="button">복사</button></div>
+            <p class="helper warn-text">이 창에서 한 번만 보여 드려요. 창을 닫으면 다시 볼 수 없으니, 아래 2단계 설정에 바로 붙여 넣어 두세요.</p>
+          </section>
+        </section>
+
+        <section class="token-step" id="token-step-2" aria-labelledby="token-step-2-title">
+          <h3 id="token-step-2-title"><span class="step-num">2</span>사용할 도구 고르기</h3>
+          <div class="tool-tabs" role="tablist" aria-label="연결할 도구">
+            <button type="button" role="tab" id="tool-tab-mcp" data-tool="mcp" aria-selected="true" aria-controls="tool-panel-mcp">MCP <small>Claude 등</small></button>
+            <button type="button" role="tab" id="tool-tab-cli" data-tool="cli" aria-selected="false" aria-controls="tool-panel-cli" tabindex="-1">CLI</button>
+            <button type="button" role="tab" id="tool-tab-rest" data-tool="rest" aria-selected="false" aria-controls="tool-panel-rest" tabindex="-1">REST API</button>
+            <button type="button" role="tab" id="tool-tab-adb" data-tool="adb" aria-selected="false" aria-controls="tool-panel-adb" tabindex="-1">Android Studio·adb</button>
+          </div>
+
+          <div class="tool-panel" id="tool-panel-mcp" role="tabpanel" aria-labelledby="tool-tab-mcp" data-tool-panel="mcp">
+            <p class="helper"><b>토큰 없이</b> 로그인만으로 연결해요. Claude 같은 MCP 클라이언트의 커넥터(원격 MCP 서버) 추가 화면에 아래 주소를 넣으면, 브라우저에서 이 계정으로 로그인하고 <b>허용</b>을 누르는 것으로 끝나요.</p>
+            <div class="code-block"><div class="code-head"><span>MCP 서버 주소</span><button type="button" class="text-button copy-code" data-copy="snippet-mcp-url">복사</button></div><pre><code id="snippet-mcp-url" data-snippet="mcp-url"></code></pre></div>
+            <section class="grants" aria-labelledby="grants-title">
+              <div class="grants-head"><h4 id="grants-title">연결된 앱</h4><span class="badge" id="grant-count"></span></div>
+              <div id="grant-list"></div>
+            </section>
+            <details class="stdio-config">
+              <summary>내 PC에서 직접 실행하는 방식(토큰 사용)</summary>
+              <p class="helper">원격 연결을 쓸 수 없을 때만 쓰세요. 클라이언트 설정 파일에 아래 내용을 추가하고 다시 시작하세요. <code>command</code>는 내 PC의 <code>marionette-mcp</code> 절대 경로로 바꿔 주세요. 1단계에서 만든 토큰이 필요해요.</p>
+              <div class="code-block"><div class="code-head"><span>MCP 설정 (JSON)</span><button type="button" class="text-button copy-code" data-copy="snippet-mcp">복사</button></div><pre><code id="snippet-mcp" data-snippet="mcp"></code></pre></div>
+            </details>
+            <dl class="tool-names">
+              <div><dt>기기 배정</dt><dd><code>list_devices</code><code>acquire_device</code><code>renew_device</code><code>release_device</code></dd></div>
+              <div><dt>화면 확인</dt><dd><code>screenshot</code><code>device_info</code></dd></div>
+              <div><dt>조작</dt><dd><code>tap</code><code>swipe</code><code>press_key</code><code>type_text</code></dd></div>
+            </dl>
+          </div>
+
+          <div class="tool-panel" id="tool-panel-cli" role="tabpanel" aria-labelledby="tool-tab-cli" data-tool-panel="cli" hidden>
+            <p class="helper">터미널에서 <code>marionette</code> 명령을 쓰는 방식이에요. 아래 환경 변수를 먼저 설정하세요.</p>
+            <div class="code-block"><div class="code-head"><span>환경 변수</span><button type="button" class="text-button copy-code" data-copy="snippet-cli-env">복사</button></div><pre><code id="snippet-cli-env" data-snippet="cli-env"></code></pre></div>
+            <div class="code-block"><div class="code-head"><span>자주 쓰는 명령</span><button type="button" class="text-button copy-code" data-copy="snippet-cli-run">복사</button></div><pre><code id="snippet-cli-run" data-snippet="cli-run"></code></pre></div>
+          </div>
+
+          <div class="tool-panel" id="tool-panel-rest" role="tabpanel" aria-labelledby="tool-tab-rest" data-tool-panel="rest" hidden>
+            <p class="helper">직접 만든 스크립트나 서비스에서 HTTP로 호출해요. 모든 요청에 <code>Authorization: Bearer 토큰</code> 헤더가 필요하고, 기기를 조작할 때는 배정 응답의 <code>lease.token</code>을 <code>X-Lease-Token</code> 헤더로 함께 보내요.</p>
+            <div class="code-block"><div class="code-head"><span>환경 변수 · 기기 목록 · 배정</span><button type="button" class="text-button copy-code" data-copy="snippet-rest-occupy">복사</button></div><pre><code id="snippet-rest-occupy" data-snippet="rest-occupy"></code></pre></div>
+            <div class="code-block"><div class="code-head"><span>조작 · 반납</span><button type="button" class="text-button copy-code" data-copy="snippet-rest-act">복사</button></div><pre><code id="snippet-rest-act" data-snippet="rest-act"></code></pre></div>
+          </div>
+
+          <div class="tool-panel" id="tool-panel-adb" role="tabpanel" aria-labelledby="tool-tab-adb" data-tool-panel="adb" hidden>
+            <p class="helper">내 PC의 Android Studio나 <code>adb</code>에서 배정받은 기기를 로컬 기기처럼 쓰는 방식이에요. 아래 명령을 터미널에서 실행하고, <b>창을 닫지 말고 켜 두세요.</b></p>
+            <div class="code-block"><div class="code-head"><span>환경 변수</span><button type="button" class="text-button copy-code" data-copy="snippet-adb-env">복사</button></div><pre><code id="snippet-adb-env" data-snippet="adb-env"></code></pre></div>
+            <div class="code-block"><div class="code-head"><span>배정 후 adb 연결</span><button type="button" class="text-button copy-code" data-copy="snippet-adb-run">복사</button></div><pre><code id="snippet-adb-run" data-snippet="adb-run"></code></pre></div>
+          </div>
+        </section>
+
+        <section class="token-step" id="token-step-3" aria-labelledby="token-step-3-title">
+          <h3 id="token-step-3-title"><span class="step-num">3</span>연결 확인</h3>
+          <div class="verify" data-tool-panel="mcp"><p>클라이언트를 다시 시작한 뒤 <code>list_devices</code> 도구를 호출해 보세요.</p><p class="expect">정상: <code>{"devices": []}</code> 같은 응답이 와요. 배정 전이라 비어 있는 게 맞아요. 이어서 <code>acquire_device</code>를 호출하면 기기가 배정돼요.</p></div>
+          <div class="verify" data-tool-panel="cli" hidden><p>터미널에서 <code>marionette devices</code>를 실행해 보세요.</p><p class="expect">정상: JSON 목록이 출력돼요. 배정 전에는 <code>[]</code>가 나오는 게 맞아요. <code>marionette occupy</code> 뒤에는 배정된 기기 1대가 보여요.</p></div>
+          <div class="verify" data-tool-panel="rest" hidden><p>기기 목록 요청(<code>GET /api/devices</code>)을 보내 보세요.</p><p class="expect">정상: HTTP 200과 <code>{"devices": [...]}</code>. 배정 전에는 목록이 비어 있어요. <code>401</code>이면 토큰이 틀렸거나 만료·폐기된 거예요.</p></div>
+          <div class="verify" data-tool-panel="adb" hidden><p><code>marionette adb</code>가 켜진 상태에서 다른 터미널에 <code>adb devices</code>를 실행해 보세요.</p><p class="expect">정상: <code>127.0.0.1:포트   device</code> 줄이 보이고, Android Studio의 기기 목록에도 나타나요.</p></div>
+        </section>
+
+        <section class="token-step" id="token-step-4" aria-labelledby="token-step-4-title">
+          <h3 id="token-step-4-title"><span class="step-num">4</span>반납과 주의사항</h3>
+          <ul class="token-notes">
+            <li>다 쓰면 반드시 반납하세요. 반납하지 않아도 연결이 끊기면 5분 뒤 자동으로 풀려요.</li>
+            <li>이미 배정된 기기가 있으면 새로 배정할 수 없어요. 먼저 반납하세요.</li>
+            <li>토큰은 비밀번호와 같아요. 채팅, 저장소, 스크린샷에 올리지 마세요. 유출이 의심되면 아래에서 바로 폐기하세요.</li>
+          </ul>
+          <p class="verify-release" data-tool-panel="mcp"><span>반납 방법</span> <code>release_device</code> 도구를 호출하세요.</p>
+          <p class="verify-release" data-tool-panel="cli" hidden><span>반납 방법</span> <code>marionette release</code></p>
+          <p class="verify-release" data-tool-panel="rest" hidden><span>반납 방법</span> <code>DELETE /api/devices/기기ID/lease</code> (위 2단계의 조작·반납 예시 참고)</p>
+          <p class="verify-release" data-tool-panel="adb" hidden><span>반납 방법</span> <code>marionette adb</code> 창에서 <kbd>Ctrl</kbd>+<kbd>C</kbd>로 연결을 끊은 뒤 <code>marionette release</code></p>
+        </section>
+
+        <section class="token-step token-mine" aria-labelledby="token-list-title">
+          <div class="token-section-heading"><h3 id="token-list-title">내 토큰 <span class="token-count" id="token-count"></span></h3><button class="text-button" id="refresh-tokens" type="button">새로고침</button></div>
+          <div id="token-list" class="token-list" aria-live="polite"></div>
+        </section>
+      </div>
+    </dialog>
+    <div class="toast" id="toast" popover="manual" role="status" aria-live="polite" hidden></div>
+  </body>
+</html>

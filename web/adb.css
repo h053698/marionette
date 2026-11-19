@@ -1,0 +1,78 @@
+/* ADB 연결 팝업 · 내 배정 · 점유 시간 전용 스타일 */
+
+/* ---------- 남은 시간 막대 ---------- */
+.meter { height: 4px; border-radius: 999px; background: var(--surface-3); overflow: hidden; }
+.meter > span { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--accent); transition: width 1s linear; }
+.low .meter > span { background: var(--warn); }
+
+/* ---------- 홈: 내 배정 ---------- */
+.my-assignment { margin: 0 0 18px; padding: 14px 16px; border-radius: var(--radius-lg); background: var(--surface-2); display: grid; gap: 12px; min-width: 0; }
+.my-assignment[hidden], .assignment-body[hidden], .filter-picker[hidden] { display: none; }
+.assignment-limit { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.assignment-label { color: var(--muted); font-size: 12px; font-weight: 600; }
+.assignment-limit strong { font-size: 15px; font-weight: 700; letter-spacing: -0.2px; }
+.assignment-note { color: var(--muted); font-size: 12px; }
+.assignment-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto; align-items: center; gap: 12px 24px; padding-top: 12px; border-top: 1px solid var(--line); }
+.assignment-device, .assignment-time { display: grid; gap: 3px; min-width: 0; }
+.assignment-device strong { font-size: 14px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.assignment-device span { color: var(--muted); font-family: var(--mono); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.assignment-time strong { font-size: 14px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.assignment-time > span { color: var(--text-2); font-size: 13px; font-variant-numeric: tabular-nums; }
+.assignment-time .meter { margin-top: 4px; }
+.low .assignment-time > span { color: var(--warn); font-weight: 600; }
+.assignment-actions { display: flex; gap: 8px; }
+.assignment-help { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+
+/* 필터 팝업 */
+.filter-picker { min-width: 140px; }
+
+/* ---------- 기기 창: 내 점유 ---------- */
+.lease-info { margin: 0 0 16px; padding: 12px 14px; border-radius: var(--radius); background: var(--surface-2); display: grid; gap: 8px; }
+.lease-info[hidden] { display: none; }
+.lease-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.lease-head span { color: var(--muted); font-size: 12px; font-weight: 600; }
+.lease-head strong { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.low .lease-head strong { color: var(--warn); }
+.lease-until { margin: 0; color: var(--text); font-size: 13px; font-weight: 600; }
+.lease-info .helper { margin: 0; line-height: 1.6; }
+#adb-tools .helper { margin: 0 0 10px; }
+
+/* ---------- ADB 연결 팝업 ---------- */
+#adb-dialog { width: min(600px, calc(100% - 32px)); }
+#adb-dialog .dialog-header { justify-content: space-between; }
+.adb-subtitle { margin: 2px 0 0; font-family: var(--mono); font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.adb-content { padding: 20px; display: grid; gap: 16px; min-width: 0; }
+.adb-steps { display: grid; gap: 18px; margin: 0; padding: 0; list-style: none; counter-reset: adb-step; }
+.adb-steps li { position: relative; display: grid; gap: 6px; min-width: 0; padding-left: 32px; counter-increment: adb-step; }
+.adb-steps li::before { content: counter(adb-step); position: absolute; top: 0; left: 0; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; color: var(--accent); background: var(--accent-soft); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.adb-steps li > strong { font-size: 14px; font-weight: 650; line-height: 22px; }
+.adb-steps li > span { color: var(--text-2); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.adb-steps code { padding: 1px 5px; border-radius: 4px; color: var(--text); background: var(--surface-3); font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
+.adb-steps .adb-token-example { display: block; width: fit-content; max-width: 100%; padding: 6px 10px; white-space: pre-wrap; }
+.adb-code-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-top: 2px; }
+.adb-countdown { color: var(--text-2); font-size: 13px; font-weight: 600; }
+.adb-countdown[hidden] { display: none; }
+.adb-countdown time { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 700; }
+.adb-countdown.urgent time { color: var(--danger); }
+.adb-handoff { margin-top: 4px; min-width: 0; }
+.adb-handoff[hidden] { display: none; }
+.command-box { overflow: hidden; border-radius: var(--radius); background: var(--surface-2); border: 1px solid var(--line); }
+.command-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 6px 4px 12px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.command-bar .text-button { padding: 5px 10px; border-radius: 6px; color: var(--accent); font-size: 13px; font-weight: 600; }
+.command-bar .text-button:hover { background: var(--surface-3); }
+.command-box pre { margin: 0; padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.command-box code { display: block; color: var(--text); font-family: var(--mono); font-size: 12px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-all; user-select: all; }
+.adb-note { margin: 0; padding: 12px 14px; border-radius: var(--radius); background: var(--surface-2); color: var(--text-2); font-size: 13px; line-height: 1.65; overflow-wrap: anywhere; }
+.adb-note b { color: var(--text); }
+.adb-status { margin: 0; color: var(--warn); font-size: 13px; line-height: 1.6; }
+.adb-status[hidden] { display: none; }
+
+/* ---------- 모바일 ---------- */
+@media (max-width: 760px) {
+  .my-assignment { padding: 12px 14px; }
+  .assignment-body { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .assignment-actions .button { flex: 1; }
+  .filter-picker { width: 100%; }
+  .adb-content { padding: 16px; }
+  #adb-dialog { max-height: calc(100dvh - 24px); }
+}
