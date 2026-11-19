@@ -1,0 +1,9 @@
+{
+  "selection": { "platform": "android" },
+  "timeoutSeconds": 60,
+  "steps": [
+    { "action": "key", "keyCode": 3 },
+    { "action": "uiTree", "format": "xml" },
+    { "action": "screenshot" }
+  ]
+}
