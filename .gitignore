@@ -1,0 +1,11 @@
+/build/
+/.marionette/
+/.tools/
+/.cache/
+*.log
+.DS_Store
+__pycache__/
+/.env
+/.env.*
+!/.env.example
+!/.env.agent.example
