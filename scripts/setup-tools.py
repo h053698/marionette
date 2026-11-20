@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Install an isolated Android build toolchain under .tools (no global changes)."""
+import argparse
 import hashlib
 import json
 import os
@@ -57,6 +58,10 @@ def fetch_json(url):
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--device-only", action="store_true",
+                        help="use JAVA_HOME if set and skip runtime platform-tools")
+    args = parser.parse_args()
     system = platform.system()
     machine = platform.machine()
     if system not in ("Darwin", "Linux"):
@@ -64,8 +69,11 @@ def main():
     CACHE.mkdir(parents=True, exist_ok=True)
     SDK.mkdir(parents=True, exist_ok=True)
     host = "macosx" if system == "Darwin" else "linux"
-    jdk = TOOLS / "jdk"
+    java_home = os.environ.get("JAVA_HOME") if args.device_only else None
+    jdk = Path(java_home) if java_home else TOOLS / "jdk"
     if not (jdk / "bin" / "javac").exists():
+        if java_home:
+            raise SystemExit(f"JAVA_HOME does not contain bin/javac: {jdk}")
         os_name = "macos" if system == "Darwin" else "linux"
         arch = "aarch64" if machine in ("arm64", "aarch64") else "x86"
         packages = fetch_json("https://api.azul.com/metadata/v1/zulu/packages/"
@@ -89,8 +97,9 @@ def main():
     needed = {
         "platforms;android-34": SDK / "platforms" / "android-34" / "android.jar",
         "build-tools;34.0.0": SDK / "build-tools" / "34.0.0" / "lib" / "d8.jar",
-        "platform-tools": SDK / "platform-tools" / "adb",
     }
+    if not args.device_only:
+        needed["platform-tools"] = SDK / "platform-tools" / "adb"
     if any(not marker.exists() for marker in needed.values()):
         print("Reading Google's Android SDK package index", flush=True)
         with urllib.request.urlopen("https://dl.google.com/android/repository/repository2-1.xml", timeout=40) as r:

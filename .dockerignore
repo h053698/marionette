@@ -9,11 +9,29 @@
 !internal/**
 !web/
 !web/**
+!device/
+!device/**
+!deploy/
+!deploy/marionette-agent.service
+!deploy/kafka-local.properties
+!docs/
+!docs/AGENT_INSTALL.md
+!docs/UBUNTU_AGENT.md
+!docs/AUTOMATION.md
+!docs/API_MCP.md
+!Makefile
+!PROTOCOL.md
 !scripts/
+!scripts/build-device.sh
+!scripts/package-agent.sh
+!scripts/render-launchd.py
+!scripts/setup-tools.py
 !scripts/setup-ubuntu-agent.sh
+!scripts/start-agent.sh
 
 # Keep local secrets and test-only source out of the image context.
 **/.env*
+!.env.agent.example
 **/*.env
 **/*.key
 **/*.pem

@@ -15,7 +15,6 @@ export MARIONETTE_DOMAIN=devices.example.com
 unset MARIONETTE_API_URL  # 단일 오리진에서 비워 둡니다.
 cp -n deploy/docker/backend.env.example deploy/docker/backend.env
 chmod 600 deploy/docker/backend.env
-mkdir -p build
 ```
 
 `deploy/docker/backend.env`에서 `MARIONETTE_OIDC_ISSUER`, `MARIONETTE_OIDC_CLIENT_ID`, `MARIONETTE_OIDC_CLIENT_SECRET`을 회사 OIDC 값으로 바꿉니다. `MARIONETTE_PUBLIC_URL`에는 `https://devices.example.com`, `MARIONETTE_OIDC_REDIRECT_URL`에는 `https://devices.example.com/auth/callback`을 지정합니다. `MARIONETTE_ADMIN_EMAILS`에는 OIDC가 검증한 관리자 이메일을, `MARIONETTE_ADMIN_SUBJECTS`에는 관리자 계정의 정확한 `sub`를 쉼표로 구분해 넣을 수 있습니다. 두 목록 중 최소 하나를 채웁니다. 기본 구성에서는 `MARIONETTE_FRONTEND_ORIGINS`를 비웁니다.
@@ -30,7 +29,7 @@ docker compose logs --tail=100 backend web proxy
 curl -fsS "https://$MARIONETTE_DOMAIN/api/session"
 ```
 
-Dockerfile 하나가 Go `1.26.11`로 `marionette-backend`, `marionette-web`, `marionette-runner`를 만들어 Alpine 런타임 이미지 하나에 담습니다. 세 서비스는 UID/GID `10001:10001`로 실행하고 루트 파일시스템을 읽기 전용으로 사용합니다. Compose의 수신 주소와 데이터 경로는 이미지 및 서비스 명령의 플래그로 고정합니다. 서버 이미지 빌드에는 Go나 Android 도구를 호스트에 따로 설치할 필요가 없습니다.
+Dockerfile 하나가 Go `1.26.11`로 `marionette-backend`, `marionette-web`, `marionette-runner`를 만들어 Alpine 런타임 이미지 하나에 담습니다. 이미지 빌드 중 Android 드라이버 JAR과 Linux amd64·arm64 에이전트 패키지, SHA-256 목록을 생성하고 `/agent-packages`에 넣습니다. JDK, Android 빌드 도구와 Go 의존성은 빌드 단계에서 준비합니다. `Dockerfile.single`도 같은 패키지를 포함합니다. 세 서비스는 UID/GID `10001:10001`로 실행하고 루트 파일시스템을 읽기 전용으로 사용합니다. Compose의 수신 주소와 데이터 경로는 이미지 및 서비스 명령의 플래그로 고정합니다.
 
 Caddy는 `/api/*`, `/auth/*`, `/oauth/*`, `/.well-known/*`, `/mcp`, `/downloads/*`, `/install/*`, `/internal/agents/*`, `/internal/runners/*`를 백엔드로 보냅니다. 나머지 경로는 웹에서 처리합니다. 원래 `Host`와 WebSocket 업그레이드가 백엔드에 전달됩니다. 영상·제어·ADB WebSocket에는 프록시 스트림 제한 시간을 걸지 않습니다. MCP 응답은 바로 전송합니다. 프록시의 요청 본문 한도는 `2 GiB`로, 에이전트의 기본 `1 GiB` 업로드에 필요한 멀티파트 공간을 포함합니다.
 
@@ -39,7 +38,7 @@ Caddy는 `/api/*`, `/auth/*`, `/oauth/*`, `/.well-known/*`, `/mcp`, `/downloads/
 ## 3. 첫 관리자 로그인과 Ubuntu 에이전트 연결
 
 1. 공개 HTTPS 주소를 열고 회사 OIDC에서 설정한 관리자 계정으로 로그인합니다. 관리자 메뉴가 보이지 않으면 이메일 검증 여부와 설정에 넣은 이메일 또는 `sub`가 일치하는지 확인합니다.
-2. 별도 빌드 호스트에서 `make tools`와 `make agent-package-linux`를 실행하거나 같은 버전의 배포 패키지를 준비합니다. `marionette-agent-linux-amd64.tar.gz`, `marionette-agent-linux-arm64.tar.gz`, `marionette-agent-linux-SHA256SUMS`를 배포 호스트의 `build/`에 놓습니다. 다른 호스트 경로를 쓸 때는 Compose 실행 전에 `MARIONETTE_AGENT_PACKAGES_DIR`을 설정합니다. 디렉터리와 파일은 컨테이너 UID `10001`이 읽을 수 있어야 합니다. 설치 스크립트는 이미지에 들어 있으며 패키지는 읽기 전용 마운트에서 제공합니다. 빈 `build/`로 서버를 시작할 수 있으며 해당 패키지를 넣은 뒤 다운로드가 가능합니다.
+2. `/install/ubuntu.sh`, `/downloads/marionette-agent-linux-SHA256SUMS`, `/downloads/marionette-agent-linux-amd64.tar.gz`, `/downloads/marionette-agent-linux-arm64.tar.gz`가 HTTP 200을 반환하는지 확인합니다. 기본 Compose 구성은 이미지에 포함된 파일을 제공합니다. 운영 설정에 `/agent-packages` 호스트 마운트가 남아 있다면 제거하여 이미지의 패키지를 사용합니다. 별도 패키지 디렉터리를 의도적으로 마운트한다면 해당 폴더에 패키지 두 개와 체크섬을 배치하고, UID `10001`에 읽기 권한을 부여합니다.
 3. 대시보드의 **에이전트 운영 → 에이전트 연결**에서 PC ID를 등록하고 발급받은 토큰을 보관합니다. 등록한 PC의 다음 명령에서 도메인과 ID를 바꿉니다.
 
    ```bash
@@ -78,7 +77,7 @@ docker compose start backend
 
 복원할 때는 정지된 백엔드에서 빈 대상 볼륨을 준비한 뒤 `docker compose run --rm --no-deps -T --entrypoint tar backend -xzf - -C /data/state < 백업파일.tar.gz`를 실행합니다. 설정 파일과 에이전트 패키지는 별도로 보관합니다. `caddy_data`에는 인증서와 키, `kafka_data`에는 브로커 데이터가 있으므로 사용 중인 경우 함께 보존합니다.
 
-서버와 패키지를 같은 릴리스로 갱신하고 `docker compose up -d --build`를 다시 실행합니다. Kafka와 러너를 운영 중이면 두 프로필을 함께 지정합니다. 설정 파일을 바꾼 뒤에도 `up -d`를 실행해 변경된 컨테이너를 재생성합니다. 운영 데이터 보존을 위해 `docker compose down`에 `-v`를 붙이지 않습니다.
+서버 소스를 갱신하고 `docker compose up -d --build`를 다시 실행합니다. 같은 소스에서 에이전트 패키지도 빌드합니다. Kafka와 러너를 운영 중이면 두 프로필을 함께 지정합니다. 설정 파일을 바꾼 뒤에도 `up -d`를 실행해 변경된 컨테이너를 재생성합니다. 운영 데이터 보존을 위해 `docker compose down`에 `-v`를 붙이지 않습니다.
 
 ```sh
 docker compose ps
@@ -92,7 +91,6 @@ docker compose logs --tail=100 -f backend web proxy
 공개 도메인 없이 로그인 흐름을 확인할 때는 별도 Compose 프로젝트에서 아래 예제를 실행합니다. HTTP와 공개된 예제 비밀번호를 사용하므로 운영에서는 회사 OIDC를 사용합니다. 포트 `18089`와 `18556`은 호스트의 루프백에만 공개합니다.
 
 ```sh
-mkdir -p build
 export MARIONETTE_DOMAIN=127.0.0.1
 export MARIONETTE_BACKEND_ENV_FILE=./deploy/docker/backend.env.example
 export MARIONETTE_JOBS_ENV_FILE=/dev/null

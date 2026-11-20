@@ -151,7 +151,7 @@ Ubuntu PC는 관리자 대시보드의 **에이전트 운영 → 에이전트 �
 
 프론트엔드는 `make frontend`로 만든 서버와 `web/`를 함께 배포하거나, `web/`만 정적 호스팅합니다. 서버 사용 시 `MARIONETTE_API_URL`을 런타임에 읽고, 정적 호스팅 시 `web/config.js`에 백엔드 주소를 지정합니다. 정적 호스팅에는 `/admin`, `/devices`, `/login`의 `index.html` 별칭을 설정하세요.
 
-Ubuntu 설치를 제공하려면 `make agent-package-linux`로 만든 패키지와 체크섬을 백엔드의 `--agent-packages` 경로(환경 변수 `MARIONETTE_AGENT_PACKAGES`, 기본 `build`)에 배치합니다. 설치 스크립트는 기본 `scripts/setup-ubuntu-agent.sh`를 사용하며 `--install-script` 또는 `MARIONETTE_INSTALL_SCRIPT`로 지정할 수 있습니다. HTTPS 프록시에서 `/install/ubuntu.sh`와 `/downloads/*`를 백엔드에 전달하면 설치 PC가 로그인 없이 파일을 받을 수 있습니다.
+서버 Docker 이미지는 Ubuntu 설치용 Linux amd64·arm64 패키지와 체크섬을 `/agent-packages`에 포함합니다. 백엔드를 직접 실행하는 환경에서는 `make agent-package-linux`로 만든 파일을 `--agent-packages` 경로(환경 변수 `MARIONETTE_AGENT_PACKAGES`, 기본 `build`)에 배치합니다. 설치 스크립트는 기본 `scripts/setup-ubuntu-agent.sh`를 사용하며 `--install-script` 또는 `MARIONETTE_INSTALL_SCRIPT`로 지정할 수 있습니다. HTTPS 프록시에서 `/install/ubuntu.sh`와 `/downloads/*`를 백엔드에 전달하면 설치 PC가 로그인 없이 파일을 받을 수 있습니다.
 
 백엔드는 `make backend`로 만든 실행 파일과 인증 설정 외에 영속 데이터도 보존해야 합니다. 개인 토큰은 `--token-file`(기본 `.marionette/tokens.json`), 대시보드에서 등록한 PC 정보·토큰 해시는 `--agent-file`(기본 `.marionette/agents.json`)에 저장합니다. 관리자 화면의 회원 목록용 기록(subject·이메일·이름·로그인/접속 시각만, 토큰·비밀 없음)은 `--user-file`(기본 `.marionette/users.json`)에 저장합니다. Kafka 작업 큐를 사용하면 `--job-file`(기본 `.marionette/jobs.json`)과 그 파일의 부모 디렉터리 아래 `artifacts/`도 함께 보존합니다. 기본 경로를 쓰는 컨테이너에서는 `.marionette/` 전체를 영속 볼륨에 둡니다. 이 JSON 저장소들은 한 백엔드 프로세스만 쓰도록 운영하며, 여러 백엔드가 같은 파일을 공유하는 구성은 지원하지 않습니다. 에이전트에는 OIDC client secret을 배포하지 않습니다.
 

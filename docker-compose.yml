@@ -28,12 +28,6 @@ services:
         required: false
     volumes:
       - backend_data:/data
-      - type: bind
-        source: ${MARIONETTE_AGENT_PACKAGES_DIR:-./build}
-        target: /agent-packages
-        read_only: true
-        bind:
-          create_host_path: false
     healthcheck:
       # The OIDC origin check uses the original HTTP Host, even on localhost.
       test:

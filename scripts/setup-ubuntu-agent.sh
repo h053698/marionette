@@ -267,15 +267,30 @@ check_kvm() {
   fi
 }
 
+download_agent_asset() {
+  local url=$1 output=$2 description=$3 status result
+  say "$description 다운로드: $url"
+  if status=$(curl --disable --fail --silent --show-error --location --retry 2 --connect-timeout 20 \
+    --proto '=http,https' --proto-redir '=https' --write-out '%{http_code}' --output "$output" -- "$url"); then
+    return 0
+  else
+    result=$?
+  fi
+  if [[ $status == 404 || $status == 503 ]]; then
+    die "$description 다운로드 실패 (HTTP $status): $url
+서버의 에이전트 배포 파일 또는 /downloads/ 프록시 설정을 확인하세요.
+서버 관리자는 Linux 패키지 2개와 marionette-agent-linux-SHA256SUMS를 백엔드의 agent-packages 디렉터리에 배치해야 합니다."
+  fi
+  die "$description 다운로드 실패 (HTTP ${status:-000}, curl $result): $url"
+}
+
 stage_package() {
   local hash binary_signature artifact
   if [[ -z $package_dir ]]; then
-    local -a fetch=(curl --disable --fail --silent --show-error --location --retry 2 --connect-timeout 20
-      --proto '=http,https' --proto-redir '=https')
-    "${fetch[@]}" --output "$stage/SHA256SUMS" -- "$backend/downloads/marionette-agent-linux-SHA256SUMS"
+    download_agent_asset "$backend/downloads/marionette-agent-linux-SHA256SUMS" "$stage/SHA256SUMS" '에이전트 체크섬'
     hash=$(awk -v name="$package.tar.gz" '$2 == name || $2 == "*" name {print $1}' "$stage/SHA256SUMS")
-    [[ $hash =~ ^[a-fA-F0-9]{64}$ ]] || die '체크섬 목록에서 이 아키텍처의 SHA-256을 찾을 수 없습니다.'
-    "${fetch[@]}" --output "$stage/$package.tar.gz" -- "$backend/downloads/$package.tar.gz"
+    [[ $hash =~ ^[a-fA-F0-9]{64}$ ]] || die "체크섬 목록에서 $package.tar.gz의 SHA-256을 찾을 수 없습니다. 서버 패키지와 /downloads/ 프록시 설정을 확인하세요."
+    download_agent_asset "$backend/downloads/$package.tar.gz" "$stage/$package.tar.gz" '에이전트 패키지'
     ( cd "$stage"; printf '%s  %s.tar.gz\n' "$hash" "$package" | sha256sum --check --status ) ||
       die '다운로드한 에이전트 패키지의 SHA-256이 일치하지 않습니다.'
     tar -xzf "$stage/$package.tar.gz" --no-same-owner --no-same-permissions -C "$stage"

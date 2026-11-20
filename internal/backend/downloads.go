@@ -3,6 +3,7 @@ package backend
 import (
 	"errors"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -56,6 +57,7 @@ func serveAgentAsset(w http.ResponseWriter, r *http.Request, contentType string,
 			continue
 		}
 		if err != nil {
+			slog.Error("open agent download", "path", path, "error", err)
 			break
 		}
 		defer file.Close()
@@ -67,7 +69,8 @@ func serveAgentAsset(w http.ResponseWriter, r *http.Request, contentType string,
 		http.ServeContent(w, r, info.Name(), info.ModTime(), file)
 		return
 	}
-	http.NotFound(w, r)
+	w.Header().Set("Retry-After", "60")
+	http.Error(w, "agent installation files are unavailable; build and deploy both Linux agent packages and marionette-agent-linux-SHA256SUMS to the backend agent-packages directory", http.StatusServiceUnavailable)
 }
 
 func openAgentAsset(path string) (*os.File, error) {

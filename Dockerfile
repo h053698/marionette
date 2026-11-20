@@ -1,4 +1,6 @@
 # syntax=docker/dockerfile:1
+FROM --platform=$BUILDPLATFORM eclipse-temurin:17-jdk-jammy AS jdk
+
 FROM --platform=$BUILDPLATFORM golang:1.26.11-bookworm AS build
 WORKDIR /src
 ENV GOTOOLCHAIN=local
@@ -14,16 +16,34 @@ ARG TARGETARCH
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     install -d -m 0700 /runtime-data/state && \
-    mkdir /out /agent-packages && \
+    mkdir /out && \
     CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH" \
     go build -mod=readonly -trimpath -ldflags='-s -w' -o /out/ \
       ./cmd/marionette-backend ./cmd/marionette-web ./cmd/marionette-runner
+
+FROM build AS agent-packages
+COPY --from=jdk /opt/java/openjdk /opt/java/openjdk
+ENV JAVA_HOME=/opt/java/openjdk GOFLAGS=-mod=readonly
+COPY scripts/ ./scripts/
+COPY device/ ./device/
+COPY deploy/ ./deploy/
+COPY docs/ ./docs/
+COPY Makefile PROTOCOL.md .env.agent.example ./
+RUN --mount=type=cache,target=/src/.tools,sharing=locked \
+    --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    python3 scripts/setup-tools.py --device-only && \
+    make agent-package-linux && \
+    install -d /agent-packages && \
+    install -m 0644 build/marionette-agent-linux-amd64.tar.gz \
+      build/marionette-agent-linux-arm64.tar.gz \
+      build/marionette-agent-linux-SHA256SUMS /agent-packages/
 
 FROM alpine:3.23
 # Prepare directories and the CA bundle on BUILDPLATFORM so cross-builds need no emulation.
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build --chown=10001:10001 /runtime-data/ /data/
-COPY --from=build /agent-packages/ /agent-packages/
+COPY --from=agent-packages /agent-packages/ /agent-packages/
 
 WORKDIR /app
 COPY --from=build /out/ /usr/local/bin/

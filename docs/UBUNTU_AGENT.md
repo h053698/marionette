@@ -11,6 +11,8 @@ curl -fsSL "$MARIONETTE_BACKEND_URL/install/ubuntu.sh" | bash -s -- --id ubuntu-
 
 토큰은 프롬프트에 붙여 넣으세요. 입력값은 화면에 표시되지 않습니다. 스크립트가 PC 아키텍처에 맞는 패키지를 내려받고 SHA-256을 검사합니다. `curl`이 없거나 이미 패키지를 받았다면 패키지를 푼 디렉터리에서 실행하세요.
 
+시스템 변경 확인 직후 `curl: (22) ... 404`가 나오면 에이전트 체크섬이나 패키지 다운로드가 실패한 것입니다. APT, Android SDK, KVM 설치 전 단계이므로 백엔드의 `/downloads/marionette-agent-linux-SHA256SUMS`와 `/downloads/marionette-agent-linux-amd64.tar.gz`가 HTTP 200을 반환하는지 서버 관리자가 확인해야 합니다. 파일을 배치하고 `/downloads/*`를 백엔드로 연결한 뒤 같은 설치 명령을 다시 실행합니다. 새 설치 스크립트는 실패한 주소와 HTTP 상태를 표시합니다.
+
 ```bash
 bash setup-ubuntu-agent.sh --backend https://api.example.com --id ubuntu-01
 ```
