@@ -53,11 +53,11 @@ func run() (err error) {
 	if raw := os.Getenv("MARIONETTE_MAX_EMULATORS"); !specified["max-emulators"] && raw != "" {
 		*maxEmulators, err = strconv.Atoi(raw)
 		if err != nil {
-			return errors.New("MARIONETTE_MAX_EMULATORS must be an integer between 0 and 8")
+			return errors.New("MARIONETTE_MAX_EMULATORS must be an integer between 0 and 32")
 		}
 	}
-	if *maxEmulators < 0 || *maxEmulators > 8 {
-		return errors.New("--max-emulators / MARIONETTE_MAX_EMULATORS must be between 0 and 8")
+	if *maxEmulators < 0 || *maxEmulators > 32 {
+		return errors.New("--max-emulators / MARIONETTE_MAX_EMULATORS must be between 0 and 32")
 	}
 	if *platform != "android" {
 		return errors.New("--platform / MARIONETTE_PLATFORM must be android")

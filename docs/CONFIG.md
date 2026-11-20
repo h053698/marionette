@@ -84,7 +84,7 @@
 | `ANDROID_SDK_ROOT` | 없음 | `/opt/android` | 선택 | 시작 시 `MARIONETTE_ANDROID_SDK` 미설정 시 SDK 탐색 |
 | `ANDROID_HOME` | 없음 | `/opt/android` | 선택 | 시작 시 앞선 설정이 없을 때 SDK 탐색 |
 | `MARIONETTE_STATE_DIR` | `.marionette/agent-<ID>` | `/var/lib/marionette/lab-pc` | 선택 | 시작 시 에이전트 정책 및 관리 AVD 경로 |
-| `MARIONETTE_MAX_EMULATORS` | `2` | `0` | 선택, `0`으로 생성 금지, 최대 `8` | 시작 시 관리 에뮬레이터 수 상한 |
+| `MARIONETTE_MAX_EMULATORS` | `2` | `0` | 선택, `0`으로 생성 금지, 최대 `32` | 시작 시 관리 에뮬레이터 수 상한 |
 | `MARIONETTE_ICE_SERVERS` | `stun:stun.l.google.com:19302` | `stun:stun.example.com:3478` 또는 `none` | 선택 | 시작 후 새 직접 ADB 연결 |
 | `MARIONETTE_ICE_USERNAME` | 없음 | `farm-agent` | TURN 사용 시 필수 | 시작 후 새 직접 ADB 연결 |
 | `MARIONETTE_ICE_PASSWORD` | 없음 | TURN 비밀값 | TURN 사용 시 필수 | 시작 후 새 직접 ADB 연결 |

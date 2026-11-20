@@ -16,7 +16,7 @@ usage() {
   --id ID                   등록한 에이전트 ID (MARIONETTE_AGENT_ID)
   --token TOKEN             에이전트 토큰 (MARIONETTE_AGENT_TOKEN 또는 숨김 입력 권장)
   --mode physical|emulator  설치할 도구 (기본 physical)
-  --emulators N             관리용 에뮬레이터 상한 0~8 (MARIONETTE_MAX_EMULATORS)
+  --emulators N             관리용 에뮬레이터 상한 0~32 (MARIONETTE_MAX_EMULATORS)
   --tags TAGS               쉼표로 구분한 기기 태그 (MARIONETTE_DEVICE_TAGS)
   --yes                     확인 생략, sudo는 -n 사용
   --dry-run                 변경 없이 작업 계획 출력
@@ -148,7 +148,7 @@ validate_config() {
   if [[ -n $token && ( ${#token} -lt 32 || $token == *[[:space:]]* ) ]]; then
     die '토큰은 공백 없이 32바이트 이상이어야 합니다.'
   fi
-  [[ -z $max || $max =~ ^[0-8]$ ]] || die '--emulators 값은 0~8이어야 합니다.'
+  [[ -z $max || $max =~ ^(0|[1-9]|[12][0-9]|3[0-2])$ ]] || die '--emulators 값은 0~32이어야 합니다.'
 }
 
 configure_paths() {
@@ -185,7 +185,7 @@ configure_paths() {
 
 check_saved_emulator_count() {
   local policy=${config[MARIONETTE_STATE_DIR]}/policy.json
-  local count_pattern='"emulatorCount"[[:space:]]*:[[:space:]]*([0-8])([^0-9]|$)'
+  local count_pattern='"emulatorCount"[[:space:]]*:[[:space:]]*([0-9]{1,2})([^0-9]|$)'
   if [[ -f $policy && $(<"$policy") =~ $count_pattern ]] &&
     (( BASH_REMATCH[1] > config[MARIONETTE_MAX_EMULATORS] )); then
     die '대시보드의 에뮬레이터 실행 수를 새 상한 이하로 낮춘 뒤 다시 실행하세요.'
@@ -523,7 +523,7 @@ main() {
           --id) arguments+=("MARIONETTE_AGENT_ID=$2") ;;
           --token) arguments+=("MARIONETTE_AGENT_TOKEN=$2") ;;
           --mode) mode_option=$2; [[ $2 == physical || $2 == emulator ]] || die '--mode는 physical 또는 emulator여야 합니다.' ;;
-          --emulators) [[ $2 =~ ^[0-8]$ ]] || die '--emulators 값은 0~8이어야 합니다.'; arguments+=("MARIONETTE_MAX_EMULATORS=$2") ;;
+          --emulators) [[ $2 =~ ^(0|[1-9]|[12][0-9]|3[0-2])$ ]] || die '--emulators 값은 0~32이어야 합니다.'; arguments+=("MARIONETTE_MAX_EMULATORS=$2") ;;
           --tags) arguments+=("MARIONETTE_DEVICE_TAGS=$2") ;;
         esac
         shift 2

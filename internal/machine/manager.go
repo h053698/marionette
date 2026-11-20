@@ -76,8 +76,8 @@ type Manager struct {
 }
 
 func New(parent context.Context, cfg Config) (*Manager, error) {
-	if cfg.MaxEmulators < 0 || cfg.MaxEmulators > 8 {
-		return nil, errors.New("max-emulators must be in 0..8")
+	if cfg.MaxEmulators < 0 || cfg.MaxEmulators > 32 {
+		return nil, errors.New("max-emulators must be in 0..32")
 	}
 	if cfg.ADB == "" {
 		cfg.ADB = "adb"

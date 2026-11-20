@@ -93,7 +93,7 @@ bash start-agent.sh \
   --max-emulators 2
 ```
 
-`JAVA_HOME`은 설치한 JDK로 지정합니다. 가상 기기는 기본적으로 대당 메모리 1.5GB, CPU 2코어, 720×1280 화면을 사용합니다. `--max-emulators 0`이면 이 PC에서 생성 기능을 끌 수 있고 최대값은 8입니다. 설정과 AVD 데이터는 `--state-dir`에 남으므로 같은 디렉터리를 계속 사용합니다. 기본값은 실행 디렉터리 기준 `.marionette/agent-<id>`입니다. 같은 상태 디렉터리를 두 에이전트가 동시에 사용할 수 없습니다.
+`JAVA_HOME`은 설치한 JDK로 지정합니다. 가상 기기는 기본적으로 대당 메모리 1.5GB, CPU 2코어, 720×1280 화면을 사용합니다. `--max-emulators 0`이면 이 PC에서 생성 기능을 끌 수 있고 최대값은 32입니다. 대당 메모리와 CPU를 쓰므로 PC 사양에 맞게 정하세요. 설정과 AVD 데이터는 `--state-dir`에 남으므로 같은 디렉터리를 계속 사용합니다. 기본값은 실행 디렉터리 기준 `.marionette/agent-<id>`입니다. 같은 상태 디렉터리를 두 에이전트가 동시에 사용할 수 없습니다.
 
 Android Studio를 설치했다면 **Settings → Languages & Frameworks → Android SDK**의 SDK Location과 위 경로를 맞춥니다. SDK Tools에서 Platform-Tools, Android Emulator, Android SDK Command-line Tools를 확인하고 SDK Platforms에서 호스트 CPU에 맞는 시스템 이미지를 설치합니다. Studio의 JBR를 쓰는 경우에도 실제 설치 경로가 존재하는지 확인합니다. Studio 자체는 USB 에이전트 실행에 필요하지 않습니다. 설치 조건은 [공식 설치 안내](https://developer.android.com/studio/install), 가속 조건은 [공식 Emulator 가속 안내](https://developer.android.com/studio/run/emulator-acceleration)를 참고합니다.
 
