@@ -162,7 +162,11 @@ func (s *Server) owned(ctx context.Context, user identity.User) ([]client.Device
 			continue
 		}
 		s.ownership.remember(user.Subject, result.id, leases)
-		devices = append(devices, body.Devices...)
+		for _, device := range body.Devices {
+			if device.LeaseMode == "" || user.Role == "admin" {
+				devices = append(devices, device)
+			}
+		}
 	}
 	return devices, lookupErr
 }
@@ -280,11 +284,11 @@ func (s *Server) readLeaseRequest(w http.ResponseWriter, r *http.Request, operat
 		return data, 200, nil
 	}
 	var input struct {
-		Code    string `json:"code"`
-		Owner   string `json:"owner"`
-		TTL     int    `json:"ttlSeconds"`
-		Resume  *bool  `json:"resume"`
-		LeaseID string `json:"leaseId"`
+		Code    string  `json:"code"`
+		Owner   string  `json:"owner"`
+		TTL     int     `json:"ttlSeconds"`
+		Resume  *bool   `json:"resume"`
+		LeaseID *string `json:"leaseId"`
 	}
 	if !bytes.HasPrefix(bytes.TrimSpace(data), []byte("{")) || json.Unmarshal(data, &input) != nil {
 		return nil, 400, errors.New("invalid lease JSON")
@@ -294,7 +298,7 @@ func (s *Server) readLeaseRequest(w http.ResponseWriter, r *http.Request, operat
 			return nil, 400, errors.New("invalid connection code")
 		}
 	} else {
-		if adminPath && input.LeaseID == "" {
+		if adminPath && (input.LeaseID == nil || (operation != "control-mode" && *input.LeaseID == "")) {
 			return nil, 400, errors.New("current leaseId is required")
 		}
 		if _, err := s.leases.Duration(input.TTL); err != nil {

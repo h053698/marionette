@@ -140,11 +140,15 @@ Go에서는 `marionette/client`의 `New`, `Devices`, `Acquire`, `Occupy`, `Renew
 
 대시보드에서 **정리 실패** 기기를 열어 **다시 정리** 또는 **정리 없이 복귀**를 선택할 수 있습니다. 관리자 세션과 `X-CSRF-Token`을 사용하는 API는 각각 `POST /api/admin/devices/{serial}/cleanup`과 `POST /api/admin/devices/{serial}/restore`입니다.
 
-관리자는 대시보드에서 사용 중인 기기를 열면 현재 점유자와 만료 시간을 볼 수 있습니다. **연결 끊기**는 해당 점유를 해제하고, **점유 가져오기**는 기존 연결을 끊은 뒤 관리자가 바로 조작할 수 있게 연결합니다. 실행 전 화면 안에서 한 번 확인합니다.
+관리자는 기기 모니터링에서 기기를 열거나 **에이전트 상세 → 제어 열기**에서 제어 방식을 선택할 수 있습니다.
 
-두 작업 모두 기존 사용자의 화면과 조작 권한을 종료합니다. API나 MCP에서 사용하던 점유 토큰도 즉시 무효가 됩니다. MCP는 다음 요청에서 종료된 점유를 지우며, 다시 사용하려면 `acquire_device`를 명시적으로 호출해야 합니다.
+- **일반 점유**는 일반 사용자와 같은 방식으로 빈 기기를 점유합니다.
+- **점검 모드**는 확인 후 기존 사용자의 화면과 조작 연결을 종료하고, 점검을 시작한 관리자에게만 제어 권한을 줍니다. 기존 점유 토큰은 즉시 만료됩니다. 점검을 종료하거나 시간이 만료되면 다시 배정할 수 있습니다.
+- **임시 제어**는 빈 기기에서 바로 시작합니다. 최대 2분 뒤 자동 반납되며 시간이 갱신되지 않습니다.
 
-관리 API는 관리자 브라우저 세션과 `X-CSRF-Token`을 사용합니다. `GET /api/devices`의 공개 `leaseId`를 `{leaseId}` 본문으로 보내 `DELETE /api/admin/devices/{serial}/lease`를 호출하면 연결을 끊습니다. 같은 경로에 `POST`로 `{leaseId,ttlSeconds}`를 보내면 새 점유를 발급합니다. 확인 중 점유자가 바뀌면 409를 반환하므로 새 점유를 확인한 뒤 다시 실행해야 합니다. 개인 API 토큰은 관리자 계정에서 발급해도 일반 사용자 권한을 유지합니다.
+관리 API는 관리자 브라우저 세션과 `X-CSRF-Token`을 사용합니다. `POST /api/admin/devices/{serial}/control-mode`에 `{mode,leaseId}`를 보냅니다. `mode`는 `maintenance` 또는 `temporary`입니다. `leaseId`는 `GET /api/devices`에서 확인한 공개 점유 ID이며, 빈 기기에는 빈 문자열을 보냅니다. 확인한 점유와 현재 점유가 다르면 409를 반환합니다. 새 점유 응답은 기존 필드에 `mode`를 포함합니다. 점검은 `PUT /api/devices/{serial}/lease`로 갱신할 수 있으며 두 모드 모두 같은 경로에 `DELETE`를 보내 종료합니다. 두 모드의 제어 권한은 관리자 세션에만 부여됩니다.
+
+**연결 끊기**는 현재 점유를 해제합니다. 공개 점유 ID를 `{leaseId}`로 보내 `DELETE /api/admin/devices/{serial}/lease`를 호출합니다. 기존 관리 클라이언트는 같은 경로에 `POST`로 `{leaseId,ttlSeconds}`를 보내 일반 점유를 가져올 수 있습니다.
 
 ## 토큰 저장과 배포
 

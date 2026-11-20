@@ -71,6 +71,8 @@ function deviceState(device) {
   if (device.state === 'unauthorized') return ['인증 필요', 'warn'];
   if (device.state === 'usb') return ['디버깅 대기', 'warn'];
   if (device.state !== 'device') return ['오프라인', ''];
+  if (device.leaseMode === 'maintenance') return ['점검 중', 'warn'];
+  if (device.leaseMode === 'temporary') return ['임시 제어 중', 'warn'];
   return device.occupied ? ['사용 중', 'warn'] : ['사용 가능', 'ok'];
 }
 function configProblem(error) {
@@ -86,7 +88,7 @@ function configProblem(error) {
   return `저장하지 못했어요. ${text}`.trim();
 }
 
-export function setupAgentDashboard({ api, notify }) {
+export function setupAgentDashboard({ api, notify, onOpenDevice }) {
   const rows = new Map();
   const connectionPending = new Set();
   let records = [], devices = [], unavailable = new Set(), devicesKnown = false;
@@ -261,16 +263,10 @@ export function setupAgentDashboard({ api, notify }) {
       }
     }
   }
-  function connectionActions(device, record) {
+  function deviceActions(device, record) {
     const node = el('div', 'adm-device-actions');
-    if (kindOf(device) !== 'physical') return node;
-    if (!device.connectionManageable) {
-      node.append(el('small', 'adm-muted', '에이전트 업데이트 필요'));
-      return node;
-    }
-    const disabled = !record.connected || !devicesKnown || unavailable.has(record.id) || connectionPending.has(device.serial) ||
-      device.occupied || ['reconnecting', 'cleaning', 'cleaning_failed'].includes(device.state);
-    function add(action, label) {
+    const available = record.connected && devicesKnown && !unavailable.has(record.id);
+    function add(action, label, disabled, run) {
       const button = el('button', 'button compact', label);
       button.type = 'button';
       button.disabled = disabled;
@@ -278,13 +274,25 @@ export function setupAgentDashboard({ api, notify }) {
       button.setAttribute('aria-label', `${name} ${label}`);
       button.dataset.connectionAction = action;
       button.dataset.serial = device.serial;
-      button.addEventListener('click', () => void changeConnection(device, action));
+      button.addEventListener('click', run);
       node.append(button);
     }
-    if (device.state === 'disconnected') add('reconnect', '다시 연결');
+    if (device.state === 'device') add('open', '제어 열기', !available, () => {
+      $('agent-detail-dialog').close();
+      onOpenDevice(device);
+    });
+    if (kindOf(device) !== 'physical') return node;
+    if (!device.connectionManageable) {
+      node.append(el('small', 'adm-muted', '연결 관리는 에이전트 업데이트 필요'));
+      return node;
+    }
+    const disabled = !available || connectionPending.has(device.serial) || device.occupied ||
+      ['reconnecting', 'cleaning', 'cleaning_failed'].includes(device.state);
+    const connect = (action, label) => add(action, label, disabled, () => void changeConnection(device, action));
+    if (device.state === 'disconnected') connect('reconnect', '다시 연결');
     else {
-      if (device.state !== 'device') add('debug', '디버깅 요청');
-      add('disconnect', '연결 해제');
+      if (device.state !== 'device') connect('debug', '디버깅 요청');
+      connect('disconnect', '연결 해제');
     }
     return node;
   }
@@ -324,7 +332,7 @@ export function setupAgentDashboard({ api, notify }) {
       const main = el('div', 'adm-main'); main.append(el('strong', '', device.model || device.rawSerial || device.serial), el('small', 'mono', device.rawSerial || device.serial));
       const [label, tone] = deviceState(device);
       const state = el('span', `badge${tone ? ` ${tone}` : ''}`, label); state.dataset.role = 'state';
-      row.append(main, cell('종류', kindOf(device) === 'virtual' ? '가상' : '실물'), state, cell('사용자', device.occupied ? device.owner || '사용 중' : '사용 안 함'), connectionActions(device, record));
+      row.append(main, cell('종류', kindOf(device) === 'virtual' ? '가상' : '실물'), state, cell('사용자', device.occupied ? device.owner || '사용 중' : '사용 안 함'), deviceActions(device, record));
       return row;
     }));
     if (focused?.connectionAction) {

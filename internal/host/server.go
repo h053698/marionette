@@ -69,6 +69,8 @@ type Device struct {
 	Height               int        `json:"height,omitempty"`
 	ConnectionManageable bool       `json:"connectionManageable,omitempty"`
 	DebugRequested       bool       `json:"debugRequested,omitempty"`
+	AdminControlModes    bool       `json:"adminControlModes,omitempty"`
+	LeaseMode            string     `json:"leaseMode,omitempty"`
 	transportID          string
 }
 
@@ -79,6 +81,7 @@ type lease struct {
 	Token        string    `json:"token"`
 	Owner        string    `json:"owner"`
 	ExpiresAt    time.Time `json:"expiresAt"`
+	Mode         string    `json:"mode,omitempty"`
 	ctx          context.Context
 	cancel       context.CancelFunc
 	done         <-chan struct{}
@@ -206,6 +209,7 @@ func New(cfg Config) *Server {
 	mux.HandleFunc("POST /api/admin/devices/{serial}/keyframe", s.previewKeyframe)
 	mux.HandleFunc("DELETE /api/admin/devices/{serial}/lease", s.adminLease)
 	mux.HandleFunc("POST /api/admin/devices/{serial}/lease", s.adminLease)
+	mux.HandleFunc("POST /api/admin/devices/{serial}/control-mode", s.adminControlLease)
 	mux.HandleFunc("POST /api/admin/devices/{serial}/cleanup", s.adminCleanup)
 	mux.HandleFunc("POST /api/admin/devices/{serial}/restore", s.adminRestore)
 	mux.HandleFunc("POST /api/admin/devices/{serial}/connection", s.adminDeviceConnection)
@@ -666,10 +670,17 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	s.expireLocked()
 	user, authenticated := identity.FromContext(r.Context())
-	private := r.URL.Path == "/api/assignments" || (authenticated && !identity.IsAdmin(r.Context()))
+	admin := identity.IsAdmin(r.Context())
+	assignmentLookup := r.URL.Path == "/api/assignments"
+	private := assignmentLookup || (authenticated && !admin)
 	devices := make([]Device, 0, len(s.devices))
 	for _, d := range s.devices {
-		mine := authenticated && d.lease != nil && d.lease.subject == user.Subject
+		mine := d.lease != nil && d.lease.ownedBy(r.Context())
+		// The relay uses this private snapshot to enforce one device per subject,
+		// even when that subject makes a request using a lower-privilege token.
+		if assignmentLookup && authenticated && d.lease != nil && d.lease.subject == user.Subject {
+			mine = true
+		}
 		if private && !mine {
 			continue
 		}
@@ -678,6 +689,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 		}
 		v := d.device
 		v.ConnectionManageable = s.cfg.Machine != nil && v.Kind == "physical"
+		v.AdminControlModes = admin
 		v.DebugRequested = time.Now().Before(d.debugRequestedUntil)
 		if s.disconnected(v.Serial) {
 			v.State = "disconnected"
@@ -697,6 +709,7 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 			v.Occupied = true
 			v.Owner = d.lease.Owner
 			v.LeaseID = d.lease.ID
+			v.LeaseMode = d.lease.Mode
 			expiry := d.lease.ExpiresAt
 			v.ExpiresAt = &expiry
 		}
@@ -774,12 +787,12 @@ func (s *Server) claim(w http.ResponseWriter, r *http.Request) {
 		fail(w, 409, "device is not authorized and online")
 		return
 	}
-	if body.LeaseID != "" && (d.lease == nil || d.lease.ID != body.LeaseID || !authenticated || d.lease.subject != user.Subject) {
+	if body.LeaseID != "" && (d.lease == nil || d.lease.ID != body.LeaseID || !d.lease.ownedBy(r.Context())) {
 		fail(w, 409, "device assignment changed; refresh and try again")
 		return
 	}
 	if d.lease != nil {
-		if authenticated && d.lease.subject == user.Subject && (body.Resume == nil || *body.Resume) {
+		if d.lease.ownedBy(r.Context()) && (body.Resume == nil || *body.Resume) {
 			writeJSON(w, 200, d.lease)
 			return
 		}
@@ -807,6 +820,11 @@ func (s *Server) authorizedLocked(w http.ResponseWriter, r *http.Request, token 
 	return d
 }
 
+func (l *lease) ownedBy(ctx context.Context) bool {
+	user, authenticated := identity.FromContext(ctx)
+	return authenticated && user.Subject == l.subject && (l.Mode == "" || identity.IsAdmin(ctx))
+}
+
 func (s *Server) authorizeLocked(r *http.Request, token string) (*slot, int, string) {
 	s.expireLocked()
 	if s.closed {
@@ -819,8 +837,7 @@ func (s *Server) authorizeLocked(r *http.Request, token string) (*slot, int, str
 	if d.lease == nil || token == "" || d.lease.Token != token {
 		return nil, 403, "invalid or expired lease token"
 	}
-	user, authenticated := identity.FromContext(r.Context())
-	if d.lease.subject != "" && (!authenticated || user.Subject != d.lease.subject) {
+	if (d.lease.subject != "" || d.lease.Mode != "") && !d.lease.ownedBy(r.Context()) {
 		return nil, 403, "lease belongs to another identity"
 	}
 	if d.device.State != "device" {
@@ -851,7 +868,9 @@ func (s *Server) renew(w http.ResponseWriter, r *http.Request) {
 	if d == nil {
 		return
 	}
-	d.lease.ExpiresAt = time.Now().Add(duration)
+	if d.lease.Mode != leaseTemporary {
+		d.lease.ExpiresAt = time.Now().Add(duration)
+	}
 	writeJSON(w, 200, d.lease)
 }
 func (s *Server) start(w http.ResponseWriter, r *http.Request) {

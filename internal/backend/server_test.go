@@ -292,6 +292,80 @@ func TestLeaseOwnershipAndAdministratorPolicyAcrossRelay(t *testing.T) {
 	}
 }
 
+func TestAdministratorControlModesAcrossRelay(t *testing.T) {
+	h := newHarness(t)
+	for _, id := range []string{"desk-a", "desk-b"} {
+		runtime := host.New(host.Config{ADB: discoveryADB{}})
+		runtime.Start(context.Background())
+		t.Cleanup(runtime.Close)
+		h.startAgent(t, id, runtime)
+	}
+	waitDevices(t, h, 2)
+	device := backend.DeviceID("desk-a", "emulator-5554")
+	leasePath := "/api/devices/" + device + "/lease"
+	modePath := "/api/admin/devices/" + device + "/control-mode"
+	admin := http.Header{"Test-Role": {"admin"}, "Test-Subject": {"operator"}}
+	call := func(method, path, body string, headers http.Header, want int) []byte {
+		t.Helper()
+		status, data := h.request(t, method, path, body, headers)
+		if status != want {
+			t.Fatalf("%s %s: got %d %s, want %d", method, path, status, data, want)
+		}
+		return data
+	}
+	type wireLease struct {
+		ID, Token, Mode string
+		ExpiresAt       time.Time
+	}
+	readLease := func(data []byte, mode string) wireLease {
+		t.Helper()
+		var value wireLease
+		if err := json.Unmarshal(data, &value); err != nil || value.ID == "" || value.Token == "" || value.Mode != mode {
+			t.Fatalf("unexpected lease: %s", data)
+		}
+		return value
+	}
+	member := readLease(call("POST", leasePath, `{}`, nil, 201), "")
+	call("POST", modePath, `{"mode":"temporary","leaseId":""}`, nil, 403)
+	call("POST", modePath, `{"mode":"temporary","leaseId":""}`, admin, 409)
+	call("POST", modePath, `{"mode":"maintenance"}`, admin, 400)
+	call("POST", modePath, `{"mode":"maintenance","leaseId":"stale"}`, admin, 409)
+
+	maintenance := readLease(call("POST", modePath, fmt.Sprintf(`{"mode":"maintenance","leaseId":%q}`, member.ID), admin, 201), "maintenance")
+	admin.Set("X-Lease-Token", maintenance.Token)
+	call("PUT", leasePath, `{}`, http.Header{"X-Lease-Token": {member.Token}}, 403)
+	call("POST", leasePath, `{}`, nil, 409)
+	call("POST", "/api/devices/"+device+"/handoff", "", admin, 409)
+	downgraded := http.Header{"Test-Subject": {"operator"}, "X-Lease-Token": {maintenance.Token}}
+	if data := call("GET", "/api/devices", "", downgraded, 200); !bytes.Contains(data, []byte(`"devices":[]`)) {
+		t.Fatalf("member saw an administrator-only assignment: %s", data)
+	}
+	call("POST", leasePath, `{}`, downgraded, 409)
+	call("PUT", leasePath, `{}`, downgraded, 403)
+	call("DELETE", leasePath, "", downgraded, 403)
+	second := "/api/devices/" + backend.DeviceID("desk-b", "emulator-5554") + "/lease"
+	call("POST", second, `{}`, downgraded, 409)
+	call("POST", second, `{}`, admin, 409)
+	renewed := readLease(call("PUT", leasePath, `{"ttlSeconds":600}`, admin, 200), "maintenance")
+	if !renewed.ExpiresAt.After(maintenance.ExpiresAt) {
+		t.Fatal("maintenance lease was not renewable")
+	}
+	call("DELETE", leasePath, "", admin, 200)
+
+	before := time.Now()
+	temporary := readLease(call("POST", modePath, `{"mode":"temporary","leaseId":"","ttlSeconds":600}`, admin, 201), "temporary")
+	if temporary.ExpiresAt.Before(before.Add(119*time.Second)) || temporary.ExpiresAt.After(time.Now().Add(2*time.Minute)) {
+		t.Fatal("temporary control must last at most two minutes")
+	}
+	admin.Set("X-Lease-Token", temporary.Token)
+	renewed = readLease(call("PUT", leasePath, `{"ttlSeconds":600}`, admin, 200), "temporary")
+	if !renewed.ExpiresAt.Equal(temporary.ExpiresAt) {
+		t.Fatal("temporary control expiry changed on renewal")
+	}
+	call("DELETE", leasePath, "", admin, 200)
+	readLease(call("POST", leasePath, `{}`, admin, 201), "")
+}
+
 func TestAgentCredentialAndDuplicateConnection(t *testing.T) {
 	h := newHarness(t)
 	dialer := websocket.Dialer{Subprotocols: []string{tunnel.Protocol}}

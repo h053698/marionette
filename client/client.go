@@ -33,6 +33,7 @@ type Device struct {
 	Owner           string     `json:"owner"`
 	ExpiresAt       *time.Time `json:"expiresAt"`
 	LeaseID         string     `json:"leaseId,omitempty"`
+	LeaseMode       string     `json:"leaseMode,omitempty"`
 	Kind            string     `json:"kind"`
 	Managed         bool       `json:"managed"`
 	ControllerReady bool       `json:"controllerReady"`

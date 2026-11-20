@@ -406,10 +406,10 @@
         </div>
         <aside class="tools-pane">
           <section class="lease-info" id="lease-info" hidden aria-label="내 점유">
-            <div class="lease-head"><span>내 점유 · 1대 중 1대 사용 중</span><strong id="lease-remaining" aria-live="off"></strong></div>
+            <div class="lease-head"><span id="lease-mode-label">내 점유 · 1대 중 1대 사용 중</span><strong id="lease-remaining" aria-live="off"></strong></div>
             <div class="meter" aria-hidden="true"><span id="lease-meter"></span></div>
             <p class="lease-until"><span id="lease-expiry"></span>까지 사용할 수 있어요. <span id="lease-owner" hidden></span></p>
-            <p class="helper">이 브라우저가 열려 있는 동안 90초마다 5분씩 자동 연장돼요. 브라우저를 닫아 갱신이 멈추면 만료 시각에 반납됩니다.</p>
+            <p class="helper" id="lease-mode-help"></p>
           </section>
           <div class="connection-actions">
             <button class="button primary full-width" id="connect">
@@ -421,11 +421,18 @@
               화면을 보는 동안에도 다른 사용자가 기기를 사용할 수 있어요.
             </p>
           </div>
+          <section class="tool-section" id="admin-control-modes" hidden>
+            <h3>관리자 제어</h3>
+            <div class="admin-lease-actions">
+              <button class="button" id="admin-maintenance" type="button">점검 모드</button>
+              <button class="button" id="admin-temporary" type="button">임시 제어</button>
+            </div>
+            <p class="helper">점검 모드는 기존 연결을 종료하고 기기를 잠가요. 임시 제어는 빈 기기에서 최대 2분간 사용할 수 있어요.</p>
+          </section>
           <section class="tool-section" id="admin-lease" hidden>
             <h3>점유 관리</h3>
             <div class="info-row"><span>현재 사용자</span><strong id="admin-owner"></strong></div>
             <div class="info-row"><span>만료</span><strong id="admin-expiry"></strong></div>
-            <p class="helper">기존 사용자의 화면 연결과 조작 권한이 종료됩니다.</p>
             <div class="admin-lease-actions" id="admin-lease-actions">
               <button class="button" id="admin-takeover">점유 가져오기</button>
               <button class="button danger" id="admin-disconnect">연결 끊기</button>
@@ -702,7 +709,7 @@
           <p class="helper" id="agent-detail-note" hidden></p>
           <p class="helper" id="agent-device-feedback" role="status" hidden></p>
           <div class="adm-table adm-devices" id="agent-detail-table">
-            <div class="adm-head" aria-hidden="true"><span>기기</span><span>종류</span><span>상태</span><span>사용자</span><span>연결 관리</span></div>
+            <div class="adm-head" aria-hidden="true"><span>기기</span><span>종류</span><span>상태</span><span>사용자</span><span>기기 관리</span></div>
             <div id="agent-detail-devices" role="list"></div>
           </div>
         </section>

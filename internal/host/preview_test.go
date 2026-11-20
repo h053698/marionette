@@ -251,6 +251,47 @@ func TestSessionCancellationClosesOperatorStream(t *testing.T) {
 	assertClosed(t, ws)
 }
 
+func TestMaintenanceRevokesOperatorVideoAndExpiryReturnsDevice(t *testing.T) {
+	s, _, _ := testServer(t)
+	const leasePath = "/api/devices/phone/lease"
+	const modePath = "/api/admin/devices/phone/control-mode"
+	claim := identityRequest(s, operator, "POST", leasePath, "", `{}`)
+	var current lease
+	if claim.Code != 201 || json.Unmarshal(claim.Body.Bytes(), &current) != nil {
+		t.Fatalf("claim: %d %s", claim.Code, claim.Body)
+	}
+	start := identityRequest(s, operator, "POST", "/api/devices/phone/start", current.Token, "")
+	if start.Code != 200 {
+		t.Fatalf("start: %d %s", start.Code, start.Body)
+	}
+	video := dialStream(t, socketServer(t, s, context.Background(), operator), "/api/devices/phone/video?token="+current.Token)
+	body, err := json.Marshal(map[string]string{"mode": leaseMaintenance, "leaseId": current.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := identityRequest(s, administrator, "POST", modePath, "", string(body)); w.Code != 201 {
+		t.Fatalf("maintenance: %d %s", w.Code, w.Body)
+	}
+	assertClosed(t, video)
+	if w := identityRequest(s, operator, "POST", leasePath, "", `{}`); w.Code != 409 {
+		t.Fatalf("device is not reserved for maintenance: %d %s", w.Code, w.Body)
+	}
+	forceExpiry := func() {
+		s.mu.Lock()
+		s.devices["phone"].lease.ExpiresAt = time.Now().Add(-time.Second)
+		s.expireLocked()
+		s.mu.Unlock()
+	}
+	forceExpiry()
+	if w := identityRequest(s, administrator, "POST", modePath, "", `{"mode":"temporary","leaseId":""}`); w.Code != 201 {
+		t.Fatalf("temporary control after maintenance expiry: %d %s", w.Code, w.Body)
+	}
+	forceExpiry()
+	if w := identityRequest(s, operator, "POST", leasePath, "", `{}`); w.Code != 201 {
+		t.Fatalf("claim after temporary expiry: %d %s", w.Code, w.Body)
+	}
+}
+
 func TestPreviewDeparturePreservesActiveOperator(t *testing.T) {
 	s, adb, _ := testServer(t)
 	token := ownedToken(t, s)

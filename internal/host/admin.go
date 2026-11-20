@@ -10,25 +10,51 @@ import (
 	"marionette/internal/identity"
 )
 
+const (
+	leaseMaintenance = "maintenance"
+	leaseTemporary   = "temporary"
+	temporaryControl = 2 * time.Minute
+)
+
 // A public lease ID identifies the occupancy the administrator reviewed. It is
 // never a control credential; a changed lease must be reviewed again.
 func (s *Server) adminLease(w http.ResponseWriter, r *http.Request) {
+	s.changeAdminLease(w, r, false)
+}
+
+func (s *Server) adminControlLease(w http.ResponseWriter, r *http.Request) {
+	s.changeAdminLease(w, r, true)
+}
+
+func (s *Server) changeAdminLease(w http.ResponseWriter, r *http.Request, controlMode bool) {
 	if !identity.IsAdmin(r.Context()) {
 		fail(w, 403, "administrator role required")
 		return
 	}
 	var body struct {
-		LeaseID string `json:"leaseId"`
-		TTL     int    `json:"ttlSeconds"`
+		LeaseID *string `json:"leaseId"`
+		TTL     int     `json:"ttlSeconds"`
+		Mode    string  `json:"mode"`
 	}
-	if err := readJSON(w, r, &body); err != nil || body.LeaseID == "" {
+	if err := readJSON(w, r, &body); err != nil || body.LeaseID == nil || (!controlMode && *body.LeaseID == "") {
 		fail(w, 400, "current leaseId is required")
+		return
+	}
+	if (controlMode && body.Mode != leaseMaintenance && body.Mode != leaseTemporary) || (!controlMode && body.Mode != "") {
+		fail(w, 400, "invalid administrator control mode")
+		return
+	}
+	if body.Mode == leaseTemporary && *body.LeaseID != "" {
+		fail(w, 409, "temporary control requires an unoccupied device")
 		return
 	}
 	duration, err := s.cfg.Leases.Duration(body.TTL)
 	if err != nil {
 		fail(w, 400, err.Error())
 		return
+	}
+	if body.Mode == leaseTemporary {
+		duration = min(temporaryControl, s.cfg.Leases.MaxTTL)
 	}
 	user, _ := identity.FromContext(r.Context())
 	owner := strings.TrimSpace(user.Name)
@@ -45,6 +71,10 @@ func (s *Server) adminLease(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.expireLocked()
+	if r.Context().Err() != nil {
+		fail(w, 408, "administrator lease request canceled")
+		return
+	}
 	d := s.devices[r.PathValue("serial")]
 	if s.closed {
 		fail(w, 503, "server shutting down")
@@ -54,15 +84,24 @@ func (s *Server) adminLease(w http.ResponseWriter, r *http.Request) {
 		fail(w, 404, "unknown device")
 		return
 	}
-	if d.lease == nil || d.lease.ID != body.LeaseID {
+	currentID := ""
+	if d.lease != nil {
+		currentID = d.lease.ID
+	}
+	if currentID != *body.LeaseID {
 		fail(w, 409, "device occupancy changed; refresh and try again")
 		return
 	}
-	if r.Method == http.MethodPost && d.device.State != "device" {
+	if r.Method == http.MethodPost && (!s.deviceOnlineLocked(d) || !s.allows(d.device.Serial) || d.replacing) {
 		fail(w, 409, "device is not authorized and online")
 		return
 	}
 	previous := d.lease
+	if previous != nil && previous.Mode != "" && r.Method == http.MethodPost {
+		fail(w, 409, "end the existing administrator session before starting another mode")
+		return
+	}
+	target := d.device.target()
 	if r.Method == http.MethodPost {
 		for _, other := range s.devices {
 			if other != d && other.lease != nil && other.lease.subject == user.Subject {
@@ -74,14 +113,19 @@ func (s *Server) adminLease(w http.ResponseWriter, r *http.Request) {
 	operation := "disconnect"
 	if r.Method == http.MethodPost {
 		operation = "takeover"
+		if controlMode {
+			operation = body.Mode
+		}
 		d.replacing = true
 		defer func() { d.replacing = false }()
 	}
 	s.waitCleanupLocked(r.Context(), s.revokeLeaseLocked(d))
-	slog.Info("administrator ended device lease", "serial", d.device.Serial, "administrator", user.Subject,
-		"previous_subject", previous.subject, "operation", operation)
+	if previous != nil {
+		slog.Info("administrator ended device lease", "serial", d.device.Serial, "administrator", user.Subject,
+			"previous_subject", previous.subject, "operation", operation)
+	}
 	if r.Method == http.MethodPost {
-		if r.Context().Err() != nil || d.device.target() != previous.target || !s.canGrantLocked(d) {
+		if r.Context().Err() != nil || s.devices[d.device.Serial] != d || d.device.target() != target || !s.canGrantLocked(d) {
 			fail(w, 409, "device is unavailable or lease cleanup is incomplete")
 			return
 		}
@@ -91,7 +135,12 @@ func (s *Server) adminLease(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		writeJSON(w, 201, d.grant(owner, user.Subject, duration))
+		granted := d.grant(owner, user.Subject, duration)
+		granted.Mode = body.Mode
+		if controlMode {
+			slog.Info("administrator started device control", "serial", d.device.Serial, "administrator", user.Subject, "mode", body.Mode)
+		}
+		writeJSON(w, 201, granted)
 		return
 	}
 	writeJSON(w, 200, map[string]bool{"ok": true})

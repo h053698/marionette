@@ -29,7 +29,7 @@ function countdown(ms) {
   return m ? `${m}분 ${String(s).padStart(2, '0')}초` : `${s}초`;
 }
 const tokenSettings = setupTokenSettings({ api, notify });
-const agentDashboard = setupAgentDashboard({ api, notify });
+const agentDashboard = setupAgentDashboard({ api, notify, onOpenDevice: openAgentDevice });
 const userDirectory = setupUsers({ api, notify });
 const deviceApi = createDeviceApi({
   apiUrl, credentials: fetchCredentials,
@@ -61,7 +61,8 @@ const cleanupLabels = {
   cleaning_failed: { label: '정리 실패', hint: '관리자가 정리를 다시 시도하거나 기기를 복귀시킬 수 있어요.' },
 };
 const unavailableLabels = { unauthorized: '인증 필요', usb: '디버깅 대기', disconnected: '연결 해제됨', reconnecting: '재연결 중' };
-const stateLabel = (device) => cleanupLabels[device.state]?.label || unavailableLabels[device.state] || (device.state !== 'device' ? '오프라인' : device.occupied ? '사용 중' : '사용 가능');
+const leaseModeLabels = { maintenance: '점검 중', temporary: '임시 제어 중' };
+const stateLabel = (device) => cleanupLabels[device.state]?.label || unavailableLabels[device.state] || (device.state !== 'device' ? '오프라인' : device.occupied ? leaseModeLabels[device.leaseMode] || '사용 중' : '사용 가능');
 const viewKey = 'marionette-device-view';
 function rememberAssignment(serial, lease) {
   state.assignment = { serial, lease };
@@ -79,7 +80,7 @@ async function restoreAssignment(device) {
     // The public lease ID is a precondition: restoring must never allocate a replacement.
     let lease = await api(`${devicePath(device.serial)}/lease`, { method: 'POST', body: { ttlSeconds: 300, leaseId: device.leaseId } });
     if (!current()) return;
-    lease = await api(`${devicePath(device.serial)}/lease`, { method: 'PUT', body: { ttlSeconds: 300 }, token: lease.token });
+    if (lease.mode !== 'temporary') lease = await api(`${devicePath(device.serial)}/lease`, { method: 'PUT', body: lease.mode ? {} : { ttlSeconds: 300 }, token: lease.token });
     if (!current() || state.assignment) return;
     rememberAssignment(device.serial, lease);
     await api(`${devicePath(device.serial)}/start`, { method: 'POST', token: lease.token, timeout: 45000 });
@@ -432,16 +433,20 @@ function updateDetail() {
 function controls() {
   const device = state.devices.find((item) => item.serial === state.selected);
   const active = Boolean(state.lease && !state.busy && state.detailLive && detailInput?.ready);
-  const manageable = isAdmin() && device?.occupied && !state.lease && Boolean(device.leaseId);
+  const managing = isAdmin() && !state.lease;
+  const manageable = managing && device?.occupied && Boolean(device.leaseId);
+  const modesAvailable = managing && device?.adminControlModes && device.state === 'device' && !device.leaseMode && !device.mine;
+  const mode = state.lease?.mode;
   const toolKey = state.lease ? `${state.selected}:${state.lease.id}` : '';
   const toolSubtitle = device ? `${modelName(device)} · ${deviceLabel(device)}` : '';
   appTools.sync(toolKey, !state.busy, toolSubtitle);
   fileTools.sync(toolKey, !state.busy);
   $('connect').disabled = state.busy || !device || device.state !== 'device' || Boolean(state.lease) || Boolean(device.occupied && !device.mine);
-  $('connect').textContent = state.busy ? '연결 중…' : device?.mine ? '조작 이어가기' : '점유하고 조작';
-  $('connect').hidden = Boolean(state.lease) || Boolean(manageable) || Boolean(cleanupLabels[device?.state]);
+  $('connect').textContent = state.busy ? '연결 중…' : device?.mine ? '조작 이어가기' : modesAvailable ? '일반 점유' : '점유하고 조작';
+  $('connect').hidden = Boolean(state.lease) || Boolean(manageable && !device.mine) || Boolean(cleanupLabels[device?.state]);
   $('release').hidden = !state.lease;
   $('release').disabled = state.busy;
+  $('release').textContent = mode === 'maintenance' ? '점검 종료' : mode === 'temporary' ? '임시 제어 종료' : '기기 반납';
   $('admin-cleanup').hidden = !isAdmin() || device?.state !== 'cleaning_failed';
   $('admin-cleanup-retry').disabled = $('admin-cleanup-restore').disabled = state.busy;
   for (const button of document.querySelectorAll('[data-key]')) {
@@ -451,28 +456,36 @@ function controls() {
   $('snapshot').disabled = !state.detailLive;
   $('rotate').disabled = !state.detailLive || !state.lease || state.busy;
   $('lease-info').hidden = !state.lease;
-  $('open-adb').disabled = !state.lease || state.busy;
+  $('open-adb').disabled = !state.lease || Boolean(mode) || state.busy;
   if (!state.lease && $('adb-dialog').open) {
     clearHandoff();
     $('adb-status').hidden = false;
     $('adb-status').textContent = '브라우저의 조작 연결이 종료됐어요. 연결 명령을 실행했다면 Android Studio 기기 목록에서 이 기기를 계속 사용할 수 있어요.';
   }
-  $('create-handoff').hidden = !state.lease;
-  $('create-handoff').disabled = !state.lease || state.busy;
+  $('create-handoff').hidden = !state.lease || Boolean(mode);
+  $('create-handoff').disabled = !state.lease || Boolean(mode) || state.busy;
   if ($('adb-code').dataset.leaseId !== (state.lease?.id || '')) {
     clearHandoff();
     $('adb-code').dataset.leaseId = state.lease?.id || '';
   }
   if (state.lease) {
     $('lease-owner').textContent = state.lease.owner;
+    $('lease-mode-label').textContent = leaseModeLabels[mode] || '내 점유 · 1대 중 1대 사용 중';
+    $('lease-mode-help').textContent = mode === 'temporary' ? '시간이 지나면 제어가 종료되고 기기가 자동으로 반납돼요.'
+      : mode === 'maintenance' ? '점검을 종료하거나 시간이 만료되면 다른 사용자에게 다시 배정할 수 있어요. 브라우저를 열어 두면 점검 시간이 갱신돼요.'
+        : '이 브라우저가 열려 있는 동안 90초마다 5분씩 자동 연장돼요. 브라우저를 닫아 갱신이 멈추면 만료 시각에 반납됩니다.';
   }
   updateLeaseClock();
+  $('admin-control-modes').hidden = !modesAvailable;
+  $('admin-maintenance').disabled = state.busy;
+  $('admin-temporary').disabled = state.busy || Boolean(device?.occupied);
   $('admin-lease').hidden = !manageable;
-  if (state.adminIntent && (!manageable || state.adminIntent.serial !== state.selected || state.adminIntent.leaseId !== device.leaseId)) state.adminIntent = null;
+  if (state.adminIntent && (!managing || state.adminIntent.serial !== state.selected || state.adminIntent.leaseId !== (device?.leaseId || ''))) state.adminIntent = null;
   if (manageable) {
     $('admin-owner').textContent = device.owner || '사용자';
     $('admin-owner').title = device.owner || '';
     $('admin-expiry').textContent = new Date(device.expiresAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    $('admin-takeover').hidden = Boolean(device.adminControlModes);
     $('admin-takeover').disabled = state.busy || device.state !== 'device';
     $('admin-disconnect').disabled = state.busy;
   }
@@ -489,7 +502,7 @@ function updateLeaseClock() {
   const until = ownLeaseExpiry();
   const left = until == null ? null : until - Date.now();
   const text = left == null ? '' : left <= 0 ? '만료됨' : countdown(left);
-  const fraction = left == null ? 0 : Math.max(0, Math.min(1, left / 300000));
+  const fraction = left == null ? 0 : Math.max(0, Math.min(1, left / (state.lease?.mode === 'temporary' ? 120000 : 300000)));
   const low = left != null && left < 60000;
   if (state.lease) {
     $('lease-expiry').textContent = until == null ? '—' : clock(new Date(until));
@@ -553,6 +566,13 @@ function openDevice(serial) {
   for (const tile of state.tiles.values()) if (tile.player && tile.serial !== state.handoffSerial) stopTile(tile);
   updateDetail();
   syncDetail();
+}
+
+function openAgentDevice(device) {
+  if (!isAdmin()) return;
+  state.devices = [...state.devices.filter((item) => item.serial !== device.serial), device];
+  openDevice(device.serial);
+  void refresh();
 }
 
 function syncDetail(previousState) {
@@ -677,18 +697,23 @@ async function action(body, log = true) {
   }
 }
 
-async function acquireDevice({ leaseId } = {}) {
+async function acquireDevice({ leaseId, mode } = {}) {
   if (state.busy || !state.selected) return;
   if (!('VideoDecoder' in globalThis)) return notify('최신 Chrome에서 HTTPS 또는 localhost로 접속해 주세요.');
   const serial = state.selected, epoch = state.detailEpoch;
   const workspaceEpoch = state.workspaceEpoch;
   const signal = detailAbort.signal;
   state.busy = true;
+  controls();
   placeholder('기기를 점유하고 있어요', '조작할 화면을 준비합니다.');
   let lease;
   try {
     const ownLeaseId = state.devices.find((device) => device.serial === serial && device.mine)?.leaseId;
-    lease = await api(leaseId ? `/api/admin/devices/${encodeURIComponent(serial)}/lease` : `${devicePath(serial)}/lease`, { method: 'POST', body: { ttlSeconds: 300, ...(leaseId || ownLeaseId ? { leaseId: leaseId || ownLeaseId } : {}) }, signal });
+    const adminPath = `/api/admin/devices/${encodeURIComponent(serial)}`;
+    const path = mode ? `${adminPath}/control-mode` : leaseId ? `${adminPath}/lease` : `${devicePath(serial)}/lease`;
+    const body = mode ? { mode, leaseId } : { ttlSeconds: 300 };
+    if (!mode && (leaseId || ownLeaseId)) body.leaseId = leaseId || ownLeaseId;
+    lease = await api(path, { method: 'POST', body, signal });
     if (workspaceEpoch !== state.workspaceEpoch) return;
     rememberAssignment(serial, lease);
     if (epoch !== state.detailEpoch) return;
@@ -732,7 +757,7 @@ function showHandoff(command, expiresAt) {
 }
 
 $('open-adb').addEventListener('click', () => {
-  if (!state.lease || $('adb-dialog').open) return;
+  if (!state.lease || state.lease.mode || $('adb-dialog').open) return;
   const device = state.devices.find((item) => item.serial === state.selected);
   $('adb-device').textContent = device ? `${modelName(device)} · ${deviceLabel(device)}` : '';
   $('adb-status').hidden = true;
@@ -745,7 +770,7 @@ $('adb-dialog').addEventListener('close', clearHandoff);
 $('adb-dialog').addEventListener('click', (event) => { if (event.target === $('adb-dialog') && event.clientX < $('adb-dialog').getBoundingClientRect().left) closeAdb(); });
 
 $('create-handoff').addEventListener('click', async () => {
-  if (!state.lease || state.busy) return;
+  if (!state.lease || state.lease.mode || state.busy) return;
   const lease = state.lease, serial = state.selected, epoch = state.detailEpoch;
   $('create-handoff').disabled = true;
   try {
@@ -767,13 +792,27 @@ for (const [id, mode] of [['admin-takeover', 'takeover'], ['admin-disconnect', '
   if (!isAdmin() || state.busy || !device?.leaseId || state.lease) return;
   void adminConfirm({ mode, serial: device.serial, leaseId: device.leaseId, owner: device.owner });
 });
+for (const mode of ['maintenance', 'temporary']) $(`admin-${mode}`).addEventListener('click', () => {
+  const device = state.devices.find((item) => item.serial === state.selected);
+  if (!isAdmin() || state.busy || state.lease || !device?.adminControlModes || device.state !== 'device' || device.leaseMode || device.mine) return;
+  if (mode === 'temporary') {
+    if (!device.occupied) void acquireDevice({ mode, leaseId: '' });
+    return;
+  }
+  void adminConfirm({ mode, serial: device.serial, leaseId: device.leaseId || '', owner: device.owner });
+});
+
 async function adminConfirm(intent) {
   state.adminIntent = intent;
   const takeover = intent.mode === 'takeover';
+  const maintenance = intent.mode === 'maintenance';
+  const endConnection = `${intent.owner || '현재 사용자'} 님의 화면 연결과 조작 권한이 바로 종료돼요.`;
   const ok = await confirmDialog({
-    title: takeover ? '이 기기를 가져올까요?' : '사용자 연결을 끊을까요?',
-    message: `${intent.owner || '현재 사용자'} 님의 화면 연결과 조작 권한이 바로 종료돼요.${takeover ? ' 이 기기는 내가 이어서 사용해요.' : ' 기기는 사용 가능 상태가 돼요.'}`,
-    confirmLabel: takeover ? '가져오기' : '연결 끊기', danger: !takeover,
+    title: maintenance ? '점검 모드를 시작할까요?' : takeover ? '이 기기를 가져올까요?' : '사용자 연결을 끊을까요?',
+    message: maintenance
+      ? `${intent.leaseId ? `${endConnection} ` : ''}점검이 끝날 때까지 이 기기를 내가 사용해요.`
+      : `${endConnection}${takeover ? ' 이 기기는 내가 이어서 사용해요.' : ' 기기는 사용 가능 상태가 돼요.'}`,
+    confirmLabel: maintenance ? '점검 시작' : takeover ? '가져오기' : '연결 끊기', danger: maintenance ? Boolean(intent.leaseId) : !takeover,
   });
   const current = state.adminIntent;
   state.adminIntent = null;
@@ -782,6 +821,7 @@ async function adminConfirm(intent) {
 }
 async function runAdminIntent(intent) {
   if (intent.mode === 'takeover') { await acquireDevice({ leaseId: intent.leaseId }); return; }
+  if (intent.mode === 'maintenance') { await acquireDevice({ mode: intent.mode, leaseId: intent.leaseId }); return; }
   const epoch = state.detailEpoch;
   state.busy = true; controls();
   try {
@@ -821,17 +861,19 @@ for (const [id, operation] of [['admin-cleanup-retry', 'cleanup'], ['admin-clean
 async function returnDevice(fromDetail) {
   const assignment = fromDetail ? { serial: state.selected, lease: state.lease } : state.assignment;
   if (!assignment?.lease || state.busy || state.choosingRelease) return;
-  const { serial, lease: { token } } = assignment;
+  const { serial, lease: { token, mode } } = assignment;
   const epoch = state.detailEpoch, workspace = state.workspaceEpoch;
   const stillHere = () => workspace === state.workspaceEpoch && epoch === state.detailEpoch;
-  state.choosingRelease = true;
-  let choice;
-  try {
-    choice = await choiceDialog({ title: '기기를 어떻게 반납할까요?', message: wipeMessage, choices: [
-      { value: 'plain', label: '그대로 반납' },
-      { value: 'wipe', label: '정리하고 반납', danger: true },
-    ] });
-  } finally { state.choosingRelease = false; }
+  let choice = 'plain';
+  if (!mode) {
+    state.choosingRelease = true;
+    try {
+      choice = await choiceDialog({ title: '기기를 어떻게 반납할까요?', message: wipeMessage, choices: [
+        { value: 'plain', label: '그대로 반납' },
+        { value: 'wipe', label: '정리하고 반납', danger: true },
+      ] });
+    } finally { state.choosingRelease = false; }
+  }
   const currentToken = fromDetail ? state.lease?.token : state.assignment?.lease.token;
   if (!choice || !stillHere() || state.busy || currentToken !== token) return;
   state.busy = true; controls();
@@ -843,7 +885,8 @@ async function returnDevice(fromDetail) {
       if (isAdmin() && !result.cleaning) { state.lease = null; connectDetail(); }
       else closeDetail();
     }
-    notify(result.cleaning ? cleaningToast : '기기를 반납했어요.');
+    notify(result.cleaning ? cleaningToast : mode === 'maintenance' ? '점검을 종료하고 기기를 반납했어요.'
+      : mode === 'temporary' ? '임시 제어를 종료하고 기기를 반납했어요.' : '기기를 반납했어요.');
   } catch (error) { if (stillHere()) notify(`반납을 확인하지 못했어요. ${error.message}`); }
   finally { if (stillHere()) { state.busy = false; controls(); } void refresh(); }
 }
@@ -987,9 +1030,10 @@ setInterval(() => { if (!document.hidden) void checkSession(); }, 60000);
 setInterval(async () => {
   if (!state.assignment || state.busy) return;
   const { serial, lease: currentLease } = state.assignment;
+  if (currentLease.mode === 'temporary') return;
   const token = currentLease.token;
   try {
-    const lease = await api(`${devicePath(serial)}/lease`, { method: 'PUT', body: { ttlSeconds: 300 }, token });
+    const lease = await api(`${devicePath(serial)}/lease`, { method: 'PUT', body: currentLease.mode ? {} : { ttlSeconds: 300 }, token });
     if (state.assignment?.lease.token === token) { rememberAssignment(serial, { ...currentLease, ...lease }); controls(); }
   } catch (error) {
     if (state.assignment?.lease.token !== token) return;

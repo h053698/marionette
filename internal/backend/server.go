@@ -290,7 +290,9 @@ func (s *Server) proxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	target, operation := r.PathValue("device"), r.PathValue("operation")
-	if operation == "lease" && (r.Method == "POST" || r.Method == "PUT" && !adminPath || r.Method == "DELETE") || operation == "attach" && !adminPath && r.Method == "POST" {
+	if operation == "lease" && (r.Method == "POST" || r.Method == "PUT" && !adminPath || r.Method == "DELETE") ||
+		operation == "attach" && !adminPath && r.Method == "POST" ||
+		operation == "control-mode" && adminPath && r.Method == "POST" {
 		s.relayLease(w, r, user, adminPath)
 		return
 	}

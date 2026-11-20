@@ -19,6 +19,10 @@ func (s *Server) handoff(w http.ResponseWriter, r *http.Request) {
 	if d == nil {
 		return
 	}
+	if d.lease.Mode != "" {
+		fail(w, 409, "administrator control modes cannot be transferred to the CLI")
+		return
+	}
 	code := randomID()
 	d.lease.handoffHash = sha256.Sum256([]byte(code))
 	d.lease.handoffUntil = time.Now().Add(90 * time.Second)
@@ -43,7 +47,7 @@ func (s *Server) attach(w http.ResponseWriter, r *http.Request) {
 	defer s.mu.Unlock()
 	s.expireLocked()
 	d := s.devices[r.PathValue("serial")]
-	if d == nil || d.lease == nil || d.device.State != "device" || d.lease.subject != user.Subject || !time.Now().Before(d.lease.handoffUntil) || subtle.ConstantTimeCompare(hash[:], d.lease.handoffHash[:]) != 1 {
+	if d == nil || d.lease == nil || d.lease.Mode != "" || d.device.State != "device" || d.lease.subject != user.Subject || !time.Now().Before(d.lease.handoffUntil) || subtle.ConstantTimeCompare(hash[:], d.lease.handoffHash[:]) != 1 {
 		fail(w, 403, "connection code expired or belongs to another account")
 		return
 	}
