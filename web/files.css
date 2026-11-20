@@ -18,7 +18,7 @@
 .tool-copy span { color: var(--muted); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tool-chevron { flex: 0 0 16px; width: 16px; height: 16px; color: var(--muted); }
 
-.tool-dialog { width: min(600px, calc(100% - 32px)); display: flex; flex-direction: column; overflow: hidden; }
+.tool-dialog { width: min(600px, calc(100% - 32px)); flex-direction: column; overflow: hidden; }
 .tool-dialog[open] { display: flex; }
 .tool-dialog.wide { width: min(780px, calc(100% - 32px)); }
 .tool-dialog .dialog-header { justify-content: space-between; flex: 0 0 auto; }
