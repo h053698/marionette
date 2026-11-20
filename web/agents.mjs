@@ -65,6 +65,9 @@ const kindOf = (device) => (device.kind === 'virtual' ? 'virtual' : 'physical');
 function deviceState(device) {
   if (device.state === 'cleaning') return ['정리 중', 'warn'];
   if (device.state === 'cleaning_failed') return ['정리 실패', 'danger'];
+  if (device.state === 'disconnected') return ['연결 해제됨', ''];
+  if (device.state === 'reconnecting') return ['재연결 중', 'warn'];
+  if (device.debugRequested) return ['승인 대기', 'warn'];
   if (device.state === 'unauthorized') return ['인증 필요', 'warn'];
   if (device.state === 'usb') return ['디버깅 대기', 'warn'];
   if (device.state !== 'device') return ['오프라인', ''];
@@ -85,6 +88,7 @@ function configProblem(error) {
 
 export function setupAgentDashboard({ api, notify }) {
   const rows = new Map();
+  const connectionPending = new Set();
   let records = [], devices = [], unavailable = new Set(), devicesKnown = false;
   let active = false, admin = false, loading = false, epoch = 0, registering = false;
   let detailId = '', configId = '', registered = null, connectTimer = null, connectStarted = 0;
@@ -208,8 +212,81 @@ export function setupAgentDashboard({ api, notify }) {
   }
   function openDetail(id) {
     if (!records.some((r) => r.id === id)) return;
+    connectionFeedback('');
     detailId = id; renderDetail();
     if (!$('agent-detail-dialog').open) $('agent-detail-dialog').showModal();
+  }
+  function connectionFeedback(message, error = false) {
+    const node = $('agent-device-feedback');
+    node.className = error ? 'adm-error' : 'helper';
+    node.textContent = message;
+    node.hidden = !message;
+  }
+  async function changeConnection(device, action) {
+    const id = detailId;
+    const version = epoch;
+    const name = device.model || device.rawSerial || device.serial;
+    connectionPending.add(device.serial);
+    connectionFeedback(`${name} 연결 요청 처리 중…`);
+    renderDetail();
+    try {
+      const { state } = await api(`/api/admin/devices/${encodeURIComponent(device.serial)}/connection`, { method: 'POST', body: { action } });
+      if (version !== epoch || detailId !== id) return;
+      const current = devices.find((item) => item.serial === device.serial);
+      if (current) {
+        if (state === 'debug_requested') current.debugRequested = true;
+        else if (state !== 'debug_unavailable') {
+          current.state = state;
+          current.debugRequested = false;
+        }
+      }
+      const messages = {
+        debug_unavailable: 'ADB 연결이 없어요. 휴대폰에서 USB 디버깅을 켜고 USB 연결을 확인해 주세요.',
+        debug_requested: '디버깅 요청을 보냈어요. 휴대폰 잠금을 풀고 USB 디버깅 승인 팝업을 확인해 주세요.',
+        disconnected: 'Marionette에서 연결을 해제했어요. 다시 연결하면 기기를 사용할 수 있어요.',
+      };
+      const message = messages[state] || (action === 'reconnect' ? 'Marionette에서 다시 연결했어요.' : '이미 USB 디버깅이 승인된 기기예요.');
+      connectionFeedback(`${name} · ${message}`);
+    } catch (error) {
+      if (version !== epoch || detailId !== id) return;
+      const message = error.message.includes('in use or cleanup') ? '기기 사용 또는 정리가 끝난 뒤 다시 시도해 주세요.'
+        : error.message.includes('ADB could not reconnect') ? '이 기기의 디버깅 요청을 보내지 못했어요. USB 연결을 확인한 뒤 다시 시도해 주세요.'
+          : error.status === 503 ? '에이전트가 오프라인이에요.' : `요청을 처리하지 못했어요. ${error.message}`;
+      connectionFeedback(`${name} · ${message}`, true);
+    } finally {
+      connectionPending.delete(device.serial);
+      if (version === epoch && detailId === id) {
+        renderDetail();
+        void refresh();
+      }
+    }
+  }
+  function connectionActions(device, record) {
+    const node = el('div', 'adm-device-actions');
+    if (kindOf(device) !== 'physical') return node;
+    if (!device.connectionManageable) {
+      node.append(el('small', 'adm-muted', '에이전트 업데이트 필요'));
+      return node;
+    }
+    const disabled = !record.connected || !devicesKnown || unavailable.has(record.id) || connectionPending.has(device.serial) ||
+      device.occupied || ['reconnecting', 'cleaning', 'cleaning_failed'].includes(device.state);
+    function add(action, label) {
+      const button = el('button', 'button compact', label);
+      button.type = 'button';
+      button.disabled = disabled;
+      const name = device.model || device.rawSerial || device.serial;
+      button.setAttribute('aria-label', `${name} ${label}`);
+      button.dataset.connectionAction = action;
+      button.dataset.serial = device.serial;
+      button.addEventListener('click', () => void changeConnection(device, action));
+      node.append(button);
+    }
+    if (device.state === 'disconnected') add('reconnect', '다시 연결');
+    else {
+      if (device.state !== 'device') add('debug', '디버깅 요청');
+      add('disconnect', '연결 해제');
+    }
+    return node;
   }
   function renderDetail() {
     const record = records.find((r) => r.id === detailId);
@@ -240,14 +317,20 @@ export function setupAgentDashboard({ api, notify }) {
     if (starting.length) note.push(`가상 기기 준비 중: ${starting.map((i) => `${i.serial} (${instanceStates[i.state] || i.state})`).join(', ')}`);
     $('agent-detail-note').textContent = note.join(' '); $('agent-detail-note').hidden = !note.length;
     $('agent-detail-table').hidden = !list.length;
-    $('agent-detail-devices').replaceChildren(...list.map((device) => {
+    const focused = document.activeElement?.dataset;
+    const deviceList = $('agent-detail-devices');
+    deviceList.replaceChildren(...list.map((device) => {
       const row = el('div', 'adm-row'); row.setAttribute('role', 'listitem');
       const main = el('div', 'adm-main'); main.append(el('strong', '', device.model || device.rawSerial || device.serial), el('small', 'mono', device.rawSerial || device.serial));
       const [label, tone] = deviceState(device);
       const state = el('span', `badge${tone ? ` ${tone}` : ''}`, label); state.dataset.role = 'state';
-      row.append(main, cell('종류', kindOf(device) === 'virtual' ? '가상' : '실물'), state, cell('사용자', device.occupied ? device.owner || '사용 중' : '사용 안 함'));
+      row.append(main, cell('종류', kindOf(device) === 'virtual' ? '가상' : '실물'), state, cell('사용자', device.occupied ? device.owner || '사용 중' : '사용 안 함'), connectionActions(device, record));
       return row;
     }));
+    if (focused?.connectionAction) {
+      [...deviceList.querySelectorAll('button')].find((button) =>
+        button.dataset.serial === focused.serial && button.dataset.connectionAction === focused.connectionAction)?.focus({ preventScroll: true });
+    }
     const button = $('agent-detail-config');
     button.disabled = !canConfigure(record); button.title = configureReason(record);
   }

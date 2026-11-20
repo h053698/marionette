@@ -47,27 +47,29 @@ type Config struct {
 	ICEServers []webrtc.ICEServer
 }
 type Device struct {
-	Platform        string     `json:"platform"`
-	Tags            []string   `json:"tags"`
-	Serial          string     `json:"serial"`
-	Model           string     `json:"model"`
-	State           string     `json:"state"`
-	Occupied        bool       `json:"occupied"`
-	Owner           string     `json:"owner"`
-	ExpiresAt       *time.Time `json:"expiresAt"`
-	LeaseID         string     `json:"leaseId,omitempty"`
-	Kind            string     `json:"kind"`
-	Managed         bool       `json:"managed"`
-	ControllerReady bool       `json:"controllerReady"`
-	VideoProfile    string     `json:"videoProfile,omitempty"`
-	Viewers         int        `json:"viewers"`
-	Mine            bool       `json:"mine"`
-	Name            string     `json:"name,omitempty"`
-	AndroidVersion  string     `json:"androidVersion,omitempty"`
-	SDK             int        `json:"sdk,omitempty"`
-	Width           int        `json:"width,omitempty"`
-	Height          int        `json:"height,omitempty"`
-	transportID     string
+	Platform             string     `json:"platform"`
+	Tags                 []string   `json:"tags"`
+	Serial               string     `json:"serial"`
+	Model                string     `json:"model"`
+	State                string     `json:"state"`
+	Occupied             bool       `json:"occupied"`
+	Owner                string     `json:"owner"`
+	ExpiresAt            *time.Time `json:"expiresAt"`
+	LeaseID              string     `json:"leaseId,omitempty"`
+	Kind                 string     `json:"kind"`
+	Managed              bool       `json:"managed"`
+	ControllerReady      bool       `json:"controllerReady"`
+	VideoProfile         string     `json:"videoProfile,omitempty"`
+	Viewers              int        `json:"viewers"`
+	Mine                 bool       `json:"mine"`
+	Name                 string     `json:"name,omitempty"`
+	AndroidVersion       string     `json:"androidVersion,omitempty"`
+	SDK                  int        `json:"sdk,omitempty"`
+	Width                int        `json:"width,omitempty"`
+	Height               int        `json:"height,omitempty"`
+	ConnectionManageable bool       `json:"connectionManageable,omitempty"`
+	DebugRequested       bool       `json:"debugRequested,omitempty"`
+	transportID          string
 }
 
 func (d Device) target() adbTarget { return adbTarget{d.Serial, d.transportID} }
@@ -92,29 +94,32 @@ type lease struct {
 	handoffUntil time.Time
 }
 type slot struct {
-	controls      int
-	device        Device
-	lease         *lease
-	runner        *Runner
-	work          *runtimeWork
-	revision      uint64
-	previews      int
-	interactive   bool
-	profile       string
-	online        chan struct{}
-	reset         bool
-	deviceCalls   int
-	adbStreams    int
-	directPeers   int
-	leaseEpoch    uint64
-	leaseCleanup  chan struct{}
-	wipePending   bool
-	wipeCancel    context.CancelFunc
-	lastRelease   releaseReceipt
-	blockedTarget *adbTarget
-	replacing     bool
-	videoStreams  int
-	fileCommit    chan struct{}
+	controls            int
+	device              Device
+	lease               *lease
+	runner              *Runner
+	work                *runtimeWork
+	revision            uint64
+	previews            int
+	interactive         bool
+	profile             string
+	online              chan struct{}
+	reset               bool
+	deviceCalls         int
+	adbStreams          int
+	directPeers         int
+	leaseEpoch          uint64
+	leaseCleanup        chan struct{}
+	wipePending         bool
+	wipeCancel          context.CancelFunc
+	lastRelease         releaseReceipt
+	blockedTarget       *adbTarget
+	replacing           bool
+	videoStreams        int
+	fileCommit          chan struct{}
+	connectionChanging  bool
+	adbTransportPresent bool
+	debugRequestedUntil time.Time
 }
 type Server struct {
 	cfg                     Config
@@ -203,6 +208,7 @@ func New(cfg Config) *Server {
 	mux.HandleFunc("POST /api/admin/devices/{serial}/lease", s.adminLease)
 	mux.HandleFunc("POST /api/admin/devices/{serial}/cleanup", s.adminCleanup)
 	mux.HandleFunc("POST /api/admin/devices/{serial}/restore", s.adminRestore)
+	mux.HandleFunc("POST /api/admin/devices/{serial}/connection", s.adminDeviceConnection)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { fail(w, 404, "unknown API endpoint") })
 	s.handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -445,7 +451,7 @@ func (d *slot) grant(owner, subject string, duration time.Duration) *lease {
 
 func (s *Server) canGrantLocked(d *slot) bool {
 	target := d.device.target()
-	return !s.closed && d.device.State == "device" && s.allows(d.device.Serial) &&
+	return !s.closed && s.deviceOnlineLocked(d) && s.allows(d.device.Serial) &&
 		s.wipeStateLocked(d) == "" && !s.quarantinedLocked(d) && d.leaseCleanup == nil && !d.reset &&
 		(d.runner == nil || d.runner.target == target)
 }
@@ -461,6 +467,14 @@ func (s *Server) allows(serial string) bool {
 		return s.cfg.Machine.Allows(serial)
 	}
 	return len(s.deviceAllow) == 0 || machine.MatchDeviceAllow(s.deviceAllow, serial, false)
+}
+
+func (s *Server) disconnected(serial string) bool {
+	return s.cfg.Machine != nil && s.cfg.Machine.Disconnected(serial)
+}
+
+func (s *Server) deviceOnlineLocked(d *slot) bool {
+	return d.device.State == "device" && !d.connectionChanging && !s.disconnected(d.device.Serial)
 }
 
 // Caller holds mu. Release it while waiting so other devices can still expire.
@@ -534,6 +548,7 @@ func (s *Server) discover(parent context.Context) {
 	s.adbAvailable = err == nil
 	for serial, d := range s.devices {
 		newD, ok := found[serial]
+		d.adbTransportPresent = ok && newD.transportID != ""
 		allowed := s.allows(serial)
 		if !ok || newD.State != "device" || newD.target() != d.device.target() || !allowed {
 			d.device.State = "offline"
@@ -565,6 +580,7 @@ func (s *Server) discover(parent context.Context) {
 		if d.State != "device" && old.device.Model != "" {
 			d.Model = old.device.Model
 		}
+		old.adbTransportPresent = d.transportID != ""
 		if d.State != "device" && d.transportID == "" {
 			d.transportID = old.device.transportID
 		}
@@ -572,10 +588,11 @@ func (s *Server) discover(parent context.Context) {
 			d.Name, d.AndroidVersion, d.SDK, d.Width, d.Height = old.device.Name, old.device.AndroidVersion, old.device.SDK, old.device.Width, old.device.Height
 		}
 		old.device = d
-		if d.State == "device" && old.online == nil {
+		if s.deviceOnlineLocked(old) && old.online == nil {
 			old.online = make(chan struct{})
+			old.debugRequestedUntil = time.Time{}
 		}
-		if d.State == "device" && d.AndroidVersion == "" {
+		if s.deviceOnlineLocked(old) && d.AndroidVersion == "" {
 			specs = append(specs, d)
 		}
 		s.devices[serial] = old
@@ -660,6 +677,13 @@ func (s *Server) list(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		v := d.device
+		v.ConnectionManageable = s.cfg.Machine != nil && v.Kind == "physical"
+		v.DebugRequested = time.Now().Before(d.debugRequestedUntil)
+		if s.disconnected(v.Serial) {
+			v.State = "disconnected"
+		} else if d.connectionChanging {
+			v.State = "reconnecting"
+		}
 		if state := s.wipeStateLocked(d); state != "" {
 			v.State = state
 		}

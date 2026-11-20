@@ -118,12 +118,21 @@
 }
 .adm-devices .adm-head,
 .adm-devices .adm-row {
-  grid-template-columns: minmax(150px, 1.5fr) 70px 100px minmax(100px, 1fr);
+  grid-template-columns: minmax(100px, 1.5fr) 44px 96px minmax(70px, 1fr) 218px;
   padding-left: 14px;
   padding-right: 14px;
 }
 .adm-devices .adm-row {
   min-height: 52px;
+}
+.adm-device-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.adm-device-actions button {
+  white-space: nowrap;
 }
 .adm-main {
   display: grid;
@@ -238,7 +247,7 @@
   width: min(640px, calc(100% - 32px));
 }
 #agent-detail-dialog {
-  width: min(720px, calc(100% - 32px));
+  width: min(800px, calc(100% - 32px));
 }
 #user-detail-dialog {
   width: min(520px, calc(100% - 32px));
@@ -787,6 +796,9 @@ fieldset.adm-field legend {
   }
   .adm-devices .adm-row {
     padding: 12px;
+  }
+  .adm-devices .adm-row > .adm-device-actions {
+    grid-column: 1 / -1;
   }
   #agent-connect-dialog,
   #agent-config-dialog,

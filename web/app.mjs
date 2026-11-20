@@ -60,7 +60,8 @@ const cleanupLabels = {
   cleaning: { label: '정리 중', hint: '정리를 마치면 다른 사용자가 기기를 쓸 수 있어요.' },
   cleaning_failed: { label: '정리 실패', hint: '관리자가 정리를 다시 시도하거나 기기를 복귀시킬 수 있어요.' },
 };
-const stateLabel = (device) => cleanupLabels[device.state]?.label || (device.state === 'unauthorized' ? '인증 필요' : device.state === 'usb' ? '디버깅 대기' : device.state !== 'device' ? '오프라인' : device.occupied ? '사용 중' : '사용 가능');
+const unavailableLabels = { unauthorized: '인증 필요', usb: '디버깅 대기', disconnected: '연결 해제됨', reconnecting: '재연결 중' };
+const stateLabel = (device) => cleanupLabels[device.state]?.label || unavailableLabels[device.state] || (device.state !== 'device' ? '오프라인' : device.occupied ? '사용 중' : '사용 가능');
 const viewKey = 'marionette-device-view';
 function rememberAssignment(serial, lease) {
   state.assignment = { serial, lease };

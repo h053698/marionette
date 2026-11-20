@@ -15,7 +15,7 @@ import (
 // serialized by one worker per slot, never under the global lock. Each worker rechecks demand
 // after external work, so release/discovery/start races converge on current state.
 func (s *Server) desiredLocked(d *slot) string {
-	if s.closed || s.devices[d.device.Serial] != d || d.device.State != "device" || !s.allows(d.device.Serial) || s.quarantinedLocked(d) || s.wipeStateLocked(d) != "" {
+	if s.closed || s.devices[d.device.Serial] != d || !s.deviceOnlineLocked(d) || !s.allows(d.device.Serial) || s.quarantinedLocked(d) || s.wipeStateLocked(d) != "" {
 		return ""
 	}
 	if s.cfg.Machine != nil {
@@ -198,7 +198,7 @@ func (s *Server) preview(w http.ResponseWriter, r *http.Request) {
 		fail(w, 404, "unknown device")
 		return
 	}
-	if d.device.State != "device" || !s.allows(d.device.Serial) {
+	if !s.deviceOnlineLocked(d) || !s.allows(d.device.Serial) {
 		s.mu.Unlock()
 		fail(w, 409, "device is not authorized and online")
 		return
@@ -264,7 +264,7 @@ func (s *Server) previewKeyframe(w http.ResponseWriter, r *http.Request) {
 		fail(w, 404, "unknown device")
 		return
 	}
-	if d.device.State != "device" || s.wipeStateLocked(d) != "" || d.runner == nil || !d.runner.alive() {
+	if !s.deviceOnlineLocked(d) || s.wipeStateLocked(d) != "" || d.runner == nil || !d.runner.alive() {
 		fail(w, 409, "no active device runner")
 		return
 	}

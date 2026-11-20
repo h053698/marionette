@@ -122,7 +122,7 @@ func (s *Server) adminWipe(w http.ResponseWriter, r *http.Request, retry bool) {
 	case s.wipeStateLocked(d) != "cleaning_failed" || d.lease != nil:
 		fail(w, 409, "device has no failed cleanup")
 	case retry:
-		if d.device.State != "device" || !s.allows(serial) {
+		if !s.deviceOnlineLocked(d) || !s.allows(serial) {
 			fail(w, 409, "device is not authorized and online")
 			return
 		}

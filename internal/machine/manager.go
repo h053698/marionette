@@ -73,6 +73,7 @@ type Manager struct {
 	awakeDisabled                            bool
 	quarantined                              map[string]string
 	wipeRequired                             map[string]bool
+	disconnected                             map[string]bool
 }
 
 func New(parent context.Context, cfg Config) (*Manager, error) {
@@ -161,6 +162,16 @@ func New(parent context.Context, cfg Config) (*Manager, error) {
 		if len(raw) > 1<<20 || json.Unmarshal(raw, &m.wipeRequired) != nil || m.wipeRequired == nil {
 			lock.Close()
 			return nil, errors.New("invalid device cleanup store")
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		lock.Close()
+		return nil, err
+	}
+	raw, err = os.ReadFile(filepath.Join(cfg.StateDir, "disconnected-devices.json"))
+	if err == nil {
+		if len(raw) > 1<<20 || json.Unmarshal(raw, &m.disconnected) != nil || m.disconnected == nil {
+			lock.Close()
+			return nil, errors.New("invalid device connection store")
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		lock.Close()
@@ -292,7 +303,35 @@ func MatchDeviceAllow(entries []string, serial string, managed bool) bool {
 func (m *Manager) PreWarm(serial string) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.policy.PreWarm && m.allowsLocked(serial) && (!strings.HasPrefix(serial, "emulator-") || m.ownsLocked(serial))
+	return m.policy.PreWarm && !m.disconnected[serial] && m.allowsLocked(serial) && (!strings.HasPrefix(serial, "emulator-") || m.ownsLocked(serial))
+}
+
+func (m *Manager) Disconnected(serial string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.disconnected[serial]
+}
+
+func (m *Manager) SetDisconnected(serial string, disconnected bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.disconnected[serial] == disconnected {
+		return nil
+	}
+	next := make(map[string]bool, len(m.disconnected)+1)
+	for device, disabled := range m.disconnected {
+		next[device] = disabled
+	}
+	if disconnected {
+		next[serial] = true
+	} else {
+		delete(next, serial)
+	}
+	if err := writePrivate(filepath.Join(m.cfg.StateDir, "disconnected-devices.json"), next); err != nil {
+		return err
+	}
+	m.disconnected = next
+	return nil
 }
 func (m *Manager) Owns(serial string) bool {
 	m.mu.Lock()
