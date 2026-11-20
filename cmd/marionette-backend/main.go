@@ -15,6 +15,7 @@ import (
 
 	"marionette/internal/auth"
 	"marionette/internal/backend"
+	"marionette/internal/frontend"
 	"marionette/internal/jobqueue"
 	"marionette/internal/service"
 )
@@ -35,6 +36,10 @@ func run() (err error) {
 	agentFile := flag.String("agent-file", service.Env("MARIONETTE_AGENT_FILE", filepath.Join(dataDir, "agents.json")), "durable agent registration hash store")
 	agentPackages := flag.String("agent-packages", service.Env("MARIONETTE_AGENT_PACKAGES", "build"), "directory containing the public Linux agent packages and checksums")
 	installScript := flag.String("install-script", os.Getenv("MARIONETTE_INSTALL_SCRIPT"), "public Ubuntu installer (defaults to scripts/setup-ubuntu-agent.sh alongside the package directory or relative to the working directory)")
+	// Optional single-origin hosting: serve the browser console from the same process
+	// so one HTTPS listener can front both the API and the static console.
+	webDir := flag.String("web-dir", service.Env("MARIONETTE_WEB_DIR", ""), "serve the browser console from this directory on non-API paths; empty disables it")
+	apiURL := flag.String("api-url", os.Getenv("MARIONETTE_API_URL"), "console backend origin; empty uses the page origin")
 	flag.Parse()
 	level, format, err := service.ConfigureLogging()
 	if err != nil {
@@ -143,7 +148,21 @@ func run() (err error) {
 	mux.HandleFunc("GET /internal/agents/{id}/connect", app.Connect)
 	mux.HandleFunc("POST /internal/runners/jobs/{id}/{operation}", app.RunnerHTTP)
 	backend.MountAgentDownloads(mux, *agentPackages, *installScript)
-	mux.Handle("/", authentication.Wrap(app))
+	served := authentication.Wrap(app)
+	// Optional single-origin mode: the browser console is served by this process on
+	// non-API paths, so one HTTPS listener covers both the API and the static console.
+	if *webDir != "" {
+		handler, err := frontend.New(*webDir, *apiURL)
+		if err != nil {
+			return fmt.Errorf("serve the console: %w", err)
+		}
+		for _, pattern := range []string{"/api/", "/auth/", "/oauth/", "/mcp", "/mcp/", "/.well-known/"} {
+			mux.Handle(pattern, served)
+		}
+		mux.Handle("/", handler)
+	} else {
+		mux.Handle("/", served)
+	}
 	redirect := authConfig.RedirectURL
 	if redirect == "" && authentication.Configured() {
 		redirect = authentication.Origin() + "/auth/callback"
