@@ -27,6 +27,8 @@ bash setup-ubuntu-agent.sh --backend https://api.example.com --id ubuntu-01
 
 업그레이드는 같은 URL로 다시 실행하거나 새로 푼 패키지에서 실행합니다. 기존 상태와 변경하지 않은 `.env` 값이 유지됩니다. 에뮬레이터 상한을 낮추려면 대시보드의 실행 수를 먼저 줄이세요.
 
+가상 기기 생성 중 `"emulator" package must be installed`가 나오면 최신 설치 스크립트를 `--mode emulator`로 다시 실행하세요. 기존 AVD와 상태를 보존하면서 설치 스크립트가 관리하는 SDK의 Emulator 패키지를 다시 등록합니다.
+
 ```bash
 bash "$HOME/.local/share/marionette-agent/setup-ubuntu-agent.sh" --uninstall
 ```

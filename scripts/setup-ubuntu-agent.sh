@@ -315,10 +315,12 @@ stage_package() {
 }
 
 install_emulator_tools() {
-  # Fetch and verify vendor archives as in scripts/setup-tools.py. Stage both
-  # tools on the same filesystem and publish directories only when complete.
+  # Bootstrap the JDK and command-line tools. Let SDK Manager install and
+  # register Android packages so avdmanager can find their metadata.
   # Version 20 still supplies the standalone sdkmanager --licenses command.
-  local cmdline_version=20.0
+  local cmdline_version=20.0 sdk=$stage/android-sdk jdk=$jdk_dir
+  local image='system-images;android-34;google_apis;x86_64'
+  if [[ -x $sdk_dir/emulator/emulator && -s $sdk_dir/emulator/package.xml ]]; then return; fi
   python3 - "$stage" "$sdk_dir" "$jdk_dir" "$cmdline_version" <<'PY'
 import hashlib
 import json
@@ -335,7 +337,6 @@ import zipfile
 stage, installed_sdk, installed_jdk = map(Path, sys.argv[1:4])
 cmdline_version = sys.argv[4]
 google = 'https://dl.google.com/android/repository/'
-images = google + 'sys-img/google_apis/'
 temurin = ('https://api.adoptium.net/v3/assets/latest/17/hotspot'
            '?architecture=x64&image_type=jdk&os=linux&vendor=eclipse')
 curl = ['curl', '--disable', '--fail', '--silent', '--show-error', '--location',
@@ -420,35 +421,31 @@ try:
             raise RuntimeError('Temurin JDK에 javac가 없습니다.')
         archive.unlink()
 
-    if not installed_sdk.exists():
-        sdk = stage / 'android-sdk'
+    cmdline_path = Path('cmdline-tools') / cmdline_version
+    sdk = stage / 'android-sdk'
+    existing_cmdline = installed_sdk / cmdline_path
+    if (existing_cmdline / 'bin/sdkmanager').is_file():
+        shutil.copytree(existing_cmdline, sdk / cmdline_path)
+    else:
         repository = ET.fromstring(download(google + 'repository2-1.xml'))
-        for name, target, marker in (
-            (f'cmdline-tools;{cmdline_version}', f'cmdline-tools/{cmdline_version}', 'bin/sdkmanager'),
-            ('platform-tools', 'platform-tools', 'adb'),
-            ('emulator', 'emulator', 'emulator'),
-        ):
-            android_package(repository, google, name, sdk / target, marker)
-        index = ET.fromstring(download(images + 'sys-img2-1.xml'))
-        android_package(index, images, 'system-images;android-34;google_apis;x86_64',
-                        sdk / 'system-images/android-34/google_apis/x86_64', 'system.img')
+        android_package(repository, google, f'cmdline-tools;{cmdline_version}',
+                        sdk / cmdline_path, 'bin/sdkmanager')
 except (RuntimeError, OSError, ValueError, KeyError, IndexError, ET.ParseError,
         zipfile.BadZipFile, subprocess.CalledProcessError) as exc:
     sys.exit(f'Android 도구 설치 실패: {exc}')
 PY
-  local sdk=$sdk_dir jdk=$jdk_dir cmdline
-  local -a license_status
   if [[ -d $stage/jdk ]]; then jdk=$stage/jdk; fi
-  if [[ -d $stage/android-sdk ]]; then
-    sdk=$stage/android-sdk
-    cmdline=$sdk/cmdline-tools/$cmdline_version/bin
-    [[ -x $cmdline/sdkmanager && -x $cmdline/avdmanager &&
-      -x $sdk/platform-tools/adb && -x $sdk/emulator/emulator && -x $jdk/bin/java ]] ||
-      die '설치한 SDK/JDK 실행 파일을 찾을 수 없습니다.'
-    local -a sdkmanager=(env -u ANDROID_SDK_HOME JAVA_HOME="$jdk" ANDROID_HOME="$sdk"
-      ANDROID_SDK_ROOT="$sdk" ANDROID_USER_HOME="$stage/android-user"
-      "$cmdline/sdkmanager" "--sdk_root=$sdk")
-    mkdir "$stage/android-user"
+  local cmdline=$sdk/cmdline-tools/$cmdline_version/bin
+  local -a license_status packages=(emulator)
+  [[ -x $cmdline/sdkmanager && -x $cmdline/avdmanager && -x $jdk/bin/java ]] ||
+    die '설치한 SDK/JDK 실행 파일을 찾을 수 없습니다.'
+  local -a android_env=(env -u ANDROID_SDK_HOME JAVA_HOME="$jdk" ANDROID_HOME="$sdk"
+    ANDROID_SDK_ROOT="$sdk" ANDROID_USER_HOME="$stage/android-user" ANDROID_AVD_HOME="$stage/probe-avds")
+  local -a sdkmanager=("${android_env[@]}" "$cmdline/sdkmanager" "--sdk_root=$sdk")
+  mkdir "$stage/android-user" "$stage/probe-avds"
+  if [[ -s $sdk_dir/licenses/android-sdk-license ]]; then
+    cp -a -- "$sdk_dir/licenses" "$sdk/licenses"
+  else
     # yes normally receives SIGPIPE when sdkmanager exits successfully.
     if yes | "${sdkmanager[@]}" --licenses; then
       :
@@ -456,14 +453,43 @@ PY
       license_status=("${PIPESTATUS[@]}")
       (( license_status[1] == 0 )) || die 'Android SDK 라이선스를 적용하지 못했습니다.'
     fi
-    [[ -s $sdk/licenses/android-sdk-license ]] || die 'Android SDK 라이선스 동의를 확인할 수 없습니다.'
-    "${sdkmanager[@]}" --list_installed >"$stage/sdk-packages"
-    grep -Eq '^[[:space:]]*system-images;android-34;google_apis;x86_64[[:space:]]+\|' "$stage/sdk-packages" ||
-      die 'SDK Manager에서 Android 34 Google APIs 이미지를 찾을 수 없습니다.'
+  fi
+  [[ -s $sdk/licenses/android-sdk-license ]] || die 'Android SDK 라이선스 동의를 확인할 수 없습니다.'
+  if [[ ! -e $sdk_dir ]]; then packages+=(platform-tools "$image"); fi
+  "${sdkmanager[@]}" --install "${packages[@]}" || die 'SDK Manager에서 Android 패키지를 설치하지 못했습니다.'
+  [[ -x $sdk/emulator/emulator && -s $sdk/emulator/package.xml ]] ||
+    die 'SDK Manager에서 Emulator 패키지를 등록하지 못했습니다.'
+  if [[ ! -e $sdk_dir ]]; then
+    [[ -x $sdk/platform-tools/adb ]] || die '설치한 ADB 실행 파일을 찾을 수 없습니다.'
+    if ! printf 'no\n' | "${android_env[@]}" "$cmdline/avdmanager" create avd \
+      -n marionette-install-check -k "$image" -d pixel >"$stage/avd-check.log" 2>&1 ||
+      [[ ! -f $stage/probe-avds/marionette-install-check.avd/config.ini ]]; then
+      cat "$stage/avd-check.log" >&2
+      die '설치한 SDK에서 가상 기기를 만들 수 없습니다.'
+    fi
     touch "$sdk/.marionette-ready"
   fi
   if [[ -d $stage/jdk ]]; then mv -T -- "$stage/jdk" "$jdk_dir"; fi
-  if [[ -d $stage/android-sdk ]]; then mv -T -- "$stage/android-sdk" "$sdk_dir"; fi
+}
+
+publish_emulator_tools() {
+  local sdk=$stage/android-sdk backup
+  [[ -d $sdk ]] || return 0
+  if [[ ! -e $sdk_dir ]]; then
+    mv -T -- "$sdk" "$sdk_dir"
+    return
+  fi
+  if [[ ! -e $sdk_dir/emulator ]]; then
+    mv -T -- "$sdk/emulator" "$sdk_dir/emulator"
+    return
+  fi
+  backup=$(mktemp -d "$install_dir/.emulator-backup.XXXXXXXX")
+  mv -T -- "$sdk_dir/emulator" "$backup/emulator"
+  if ! mv -T -- "$sdk/emulator" "$sdk_dir/emulator"; then
+    mv -T -- "$backup/emulator" "$sdk_dir/emulator"
+    die '기존 Emulator 패키지를 교체하지 못했습니다.'
+  fi
+  say "이전 Emulator 패키지 백업: $backup/emulator"
 }
 
 prepare_stage() {
@@ -480,6 +506,7 @@ install_agent() {
   if [[ -f $unit_file ]] || systemctl --user is-active --quiet "$unit"; then
     systemctl --user stop "$unit"
   fi
+  if [[ $mode == emulator ]]; then publish_emulator_tools; fi
   for artifact in "$stage/install/"* "$stage/install/.env.example"; do
     [[ -f $artifact ]] || continue
     mv -fT -- "$artifact" "$install_dir/${artifact##*/}"
@@ -618,8 +645,8 @@ main() {
       [[ ! -e $jdk_dir || -x $jdk_dir/bin/javac ]] || die "기존 JDK 폴더를 확인하세요: $jdk_dir"
     fi
     say 'Android SDK 라이선스를 확인하세요. https://developer.android.com/studio/terms'
-    say '에뮬레이터를 처음 설치할 때 sdkmanager --licenses의 질문에 자동으로 동의합니다.'
-    if (( ! dry_run )) && [[ ! -f $sdk_dir/.marionette-ready ]]; then
+    say '필요할 때 sdkmanager --licenses의 질문에 자동으로 동의합니다.'
+    if (( ! dry_run )) && [[ ! -s $sdk_dir/licenses/android-sdk-license ]]; then
       confirm '라이선스 자동 동의와 에뮬레이터 설치를 진행할까요?' || die '에뮬레이터 설치를 취소했습니다.'
     fi
   fi
@@ -646,7 +673,7 @@ main() {
       say 'CPU 가상화와 /dev/kvm 권한 확인 (kvm-ok)'
       say "Google 저장소 체크섬 검증 및 SDK 설치: $sdk_dir"
       say "Adoptium SHA-256 검증 및 Temurin JDK 17 설치: $jdk_dir"
-      say '새 SDK에서만 sdkmanager --licenses 및 설치 이미지 확인'
+      say 'SDK Manager로 패키지 설치 및 기존 Emulator 등록 복구'
     fi
     say "설치 파일 경로: $install_dir"
     say "상태 디렉터리 준비 (기존 설정 우선): ${config[MARIONETTE_STATE_DIR]}"
