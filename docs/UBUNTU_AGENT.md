@@ -21,6 +21,8 @@ bash setup-ubuntu-agent.sh --backend https://api.example.com --id ubuntu-01
 - **에뮬레이터**는 위 명령 끝에 `--mode emulator --emulators 2`를 붙입니다. amd64에서 전용 Android SDK, Android 34 Google APIs 이미지, Temurin JDK 17을 설치합니다. arm64에서는 실물 기기용으로 설치합니다. 기존 Android Studio SDK와 별도로 설치하며 라이선스 자동 동의 전에 확인합니다. `--emulators`는 상한입니다. 실제 실행 수와 이미지는 대시보드의 **운영 설정**에서 지정합니다.
 - `--tags lab,android`로 태그를 지정하고 `--dry-run`으로 작업 계획을 볼 수 있습니다. 자동화에서는 `MARIONETTE_BACKEND_URL`, `MARIONETTE_AGENT_ID`, `MARIONETTE_AGENT_TOKEN`을 환경 변수로 전달하고 `--yes`를 붙입니다. `--yes`에서 sudo도 입력을 받지 않으므로 해당 계정의 sudo 인증을 먼저 준비하세요.
 
+패키지 다운로드 후 `apt-get update`에서 `NO_PUBKEY`가 나오면 오류에 표시된 저장소의 서명 키와 배포판 코드명을 확인하세요. 예를 들어 Ubuntu 26.04의 Docker 저장소는 `resolute`를 사용합니다. [Docker 공식 설치 안내](https://docs.docker.com/engine/install/ubuntu/#install-using-the-apt-repository)에 따라 저장소를 복구하거나, 당장 필요 없는 저장소라면 해당 항목만 비활성화합니다. `sudo apt-get update`가 성공하면 설치를 다시 실행하세요.
+
 설치 후 **에이전트 운영**에서 연결 상태와 기기 목록을 확인하세요. `systemctl --user status marionette-agent.service`로 상태를 보고, `journalctl --user -u marionette-agent.service -f`로 로그를 봅니다. 부팅 직후 자동 실행하려면 설치 중 linger를 허용하세요.
 
 업그레이드는 같은 URL로 다시 실행하거나 새로 푼 패키지에서 실행합니다. 기존 상태와 변경하지 않은 `.env` 값이 유지됩니다. 에뮬레이터 상한을 낮추려면 대시보드의 실행 수를 먼저 줄이세요.
@@ -60,7 +62,7 @@ adb devices -l
 일반 Intel·AMD Ubuntu에서는 BIOS/UEFI의 CPU 가상화를 활성화하고 KVM 접근 권한을 확인합니다. 아래 권한 변경은 해당 Ubuntu 호스트에서 관리자가 수행합니다.
 
 ```sh
-sudo apt-get install -y cpu-checker qemu-kvm
+sudo apt-get install -y cpu-checker qemu-system-x86
 sudo usermod -aG kvm "$(id -un)"
 # 그룹 변경 후 로그아웃·로그인한 뒤 실행합니다.
 id

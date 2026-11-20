@@ -239,7 +239,8 @@ plan_system_changes() {
 
 install_system_packages() {
   local group
-  "${elevate[@]}" apt-get update
+  "${elevate[@]}" apt-get update ||
+    die 'APT 패키지 목록 갱신에 실패했습니다. 위 오류의 저장소와 서명 키를 확인하고, sudo apt-get update가 성공한 뒤 설치를 다시 실행하세요.'
   "${elevate[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y "${apt_packages[@]}"
   for group in "${groups_to_add[@]}"; do
     if ! getent group "$group" >/dev/null; then
@@ -607,7 +608,7 @@ main() {
   local -a groups_to_add=() required_groups=(plugdev) elevate=(sudo)
   if (( assume_yes )); then elevate+=(-n); fi
   if [[ $mode == emulator ]]; then
-    apt_packages+=(cpu-checker qemu-kvm python3)
+    apt_packages+=(cpu-checker qemu-system-x86 python3)
     required_groups+=(kvm)
     if (( ! dry_run )); then
       grep -Eq '^flags[[:blank:]]*:.*[[:blank:]](vmx|svm)([[:blank:]]|$)' /proc/cpuinfo ||
