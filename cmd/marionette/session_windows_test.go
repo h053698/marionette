@@ -30,6 +30,11 @@ func TestSessionWindowsACL(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Windows can retain inheritance bookkeeping flags on a protected DACL.
+	// Normalize those flags while preserving protection and every access entry.
+	if err := sd.SetControl(windows.SE_DACL_AUTO_INHERITED|windows.SE_DACL_AUTO_INHERIT_REQ, 0); err != nil {
+		t.Fatal(err)
+	}
 	if got, want := sd.String(), expected.String(); got != want {
 		t.Fatalf("session ACL = %s, want %s", got, want)
 	}
