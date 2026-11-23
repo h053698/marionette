@@ -1,4 +1,4 @@
-.PHONY: tools device backend agent frontend agent-package agent-package-linux mcp cli runner run run-backend run-agent run-web test check
+.PHONY: tools device backend agent frontend agent-package agent-package-linux mcp cli cli-package runner run run-backend run-agent run-web test check
 
 tools:
 	python3 scripts/setup-tools.py
@@ -27,6 +27,9 @@ mcp:
 
 cli:
 	go build -o build/marionette ./cmd/marionette
+
+cli-package:
+	python3 scripts/package-cli.py --version "$(or $(VERSION),dev)"
 
 runner:
 	go build -o build/marionette-runner ./cmd/marionette-runner

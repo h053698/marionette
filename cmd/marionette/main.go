@@ -22,6 +22,9 @@ type session struct {
 	Assignment client.Assignment `json:"assignment"`
 }
 
+var version = "dev"
+var commit = "unknown"
+
 func main() {
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -30,6 +33,10 @@ func main() {
 }
 
 func run() error {
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "version") {
+		fmt.Printf("marionette %s (%s)\n", version, commit)
+		return nil
+	}
 	global := flag.NewFlagSet("marionette", flag.ContinueOnError)
 	origin := os.Getenv("MARIONETTE_URL")
 	if origin == "" {
@@ -510,8 +517,11 @@ func readSession(path, origin string) (session, error) {
 	if err != nil {
 		return state, err
 	}
-	if !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 {
+	if !info.Mode().IsRegular() {
 		return state, errors.New("session file must be a private regular file (chmod 600)")
+	}
+	if err := secureSessionFile(file); err != nil {
+		return state, err
 	}
 	if info.Size() > 1<<20 {
 		return state, errors.New("session file too large")
@@ -531,6 +541,10 @@ func saveSession(path string, state session) error {
 		return err
 	}
 	defer os.Remove(file.Name())
+	if err := secureSessionFile(file); err != nil {
+		file.Close()
+		return err
+	}
 	if err := json.NewEncoder(file).Encode(state); err != nil {
 		file.Close()
 		return err

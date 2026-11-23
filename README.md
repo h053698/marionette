@@ -113,6 +113,8 @@ make run-agent
 
 ## API와 MCP로 조작
 
+사용자 PC용 CLI는 [GitHub Releases](https://github.com/h053698/marionette/releases/latest)에서 macOS Apple Silicon·Intel, Windows 64비트 ZIP으로 내려받을 수 있습니다. Go 설치 없이 실행하며, ADB 준비와 연결 방법은 [CLI 설치 안내](docs/CLI_INSTALL.md)를 참고하세요.
+
 Claude 같은 MCP 클라이언트는 `<백엔드 주소>/mcp`를 원격 MCP 서버로 추가하면 됩니다. 토큰 없이 OAuth 2.1(PKCE, 동적 클라이언트 등록)로 로그인·허용하고, 웹 콘솔 **API / MCP**의 **연결된 앱**에서 폐기합니다. CLI·REST·로컬 stdio MCP는 같은 창에서 개인 토큰을 발급해 사용합니다.
 
 ```sh

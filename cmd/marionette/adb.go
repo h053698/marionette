@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -106,20 +107,7 @@ func adbCommand(parent context.Context, api *client.Client, current session, sta
 		return errors.New("invalid local port")
 	}
 	if *adb == "" {
-		*adb, _ = exec.LookPath("adb")
-		if *adb == "" {
-			home, _ := os.UserHomeDir()
-			for _, root := range []string{os.Getenv("ANDROID_HOME"), os.Getenv("ANDROID_SDK_ROOT"), filepath.Join(home, "Library", "Android", "sdk"), filepath.Join(home, "Android", "Sdk")} {
-				if root == "" {
-					continue
-				}
-				candidate := filepath.Join(root, "platform-tools", "adb")
-				if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-					*adb = candidate
-					break
-				}
-			}
-		}
+		*adb = findADB()
 	}
 	if *adb == "" {
 		return errors.New("local adb not found; pass --adb PATH (Android Studio SDK platform-tools/adb)")
@@ -205,4 +193,29 @@ func adbCommand(parent context.Context, api *client.Client, current session, sta
 		return errors.New("device access ended; ADB disconnected")
 	}
 	return nil
+}
+
+func findADB() string {
+	if path, err := exec.LookPath("adb"); err == nil {
+		return path
+	}
+	home, _ := os.UserHomeDir()
+	roots := []string{os.Getenv("ANDROID_HOME"), os.Getenv("ANDROID_SDK_ROOT"), filepath.Join(home, "Library", "Android", "sdk"), filepath.Join(home, "Android", "Sdk")}
+	name := "adb"
+	if runtime.GOOS == "windows" {
+		name = "adb.exe"
+		if local := os.Getenv("LOCALAPPDATA"); local != "" {
+			roots = append(roots, filepath.Join(local, "Android", "Sdk"))
+		}
+	}
+	for _, root := range roots {
+		if root == "" {
+			continue
+		}
+		candidate := filepath.Join(root, "platform-tools", name)
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			return candidate
+		}
+	}
+	return ""
 }

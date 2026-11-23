@@ -4,6 +4,8 @@
 
 ## CLI로 기기 배정받기
 
+배포용 CLI는 [GitHub Releases](https://github.com/h053698/marionette/releases/latest)에서 받습니다. macOS·Windows 설치와 ADB 준비는 [CLI 설치 안내](CLI_INSTALL.md)를 참고하세요. 아래 `make` 명령은 소스에서 직접 빌드하는 경우에만 필요합니다.
+
 ```sh
 make cli mcp
 export PATH="$PWD/build:$PATH"
