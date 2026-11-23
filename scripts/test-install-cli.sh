@@ -5,7 +5,7 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 fixtures=$(cd "${1:-$root/build/cli-release}" && pwd)
 sandbox=$(mktemp -d "${TMPDIR:-/tmp}/marionette-install-test.XXXXXX")
 trap 'rm -rf "$sandbox"' EXIT
-mkdir -p "$sandbox/mock-bin" "$sandbox/home with ' quote"
+mkdir -p "$sandbox/mock-bin" "$sandbox/zsh"
 cat > "$sandbox/mock-bin/curl" <<'SH'
 #!/bin/sh
 set -eu
@@ -30,21 +30,22 @@ esac
 SH
 chmod +x "$sandbox/mock-bin/curl"
 export FIXTURES="$fixtures"
-export HOME="$sandbox/home with ' quote"
+export MARIONETTE_INSTALL_DIR="$sandbox/path with ' quote/bin"
+export MARIONETTE_PROFILE="$sandbox/zsh/.zshrc"
 export PATH="$sandbox/mock-bin:$PATH"
 export SHELL=/bin/zsh
-unset MARIONETTE_VERSION MARIONETTE_INSTALL_DIR
+unset MARIONETTE_VERSION
 
 sh "$root/scripts/install-cli.sh"
-binary=$HOME/.local/bin/marionette
+binary=$MARIONETTE_INSTALL_DIR/marionette
 [ -x "$binary" ]
 version=$("$binary" --version)
 # A new interactive zsh must find the installed command through its saved PATH.
-zsh -ic 'marionette --version' | grep -Fqx "$version"
+ZDOTDIR="$sandbox/zsh" zsh -ic 'marionette --version' | grep -Fqx "$version"
 original=$(shasum -a 256 "$binary")
-profile=$(cat "$HOME/.zshrc")
+profile=$(cat "$MARIONETTE_PROFILE")
 sh "$root/scripts/install-cli.sh"
-[ "$(cat "$HOME/.zshrc")" = "$profile" ]
+[ "$(cat "$MARIONETTE_PROFILE")" = "$profile" ]
 [ "$(shasum -a 256 "$binary")" = "$original" ]
 
 if TAMPER=1 sh "$root/scripts/install-cli.sh" > "$sandbox/failure.log" 2>&1; then
@@ -52,10 +53,11 @@ if TAMPER=1 sh "$root/scripts/install-cli.sh" > "$sandbox/failure.log" 2>&1; the
     exit 1
 fi
 grep -Fq 'SHA-256 verification failed' "$sandbox/failure.log"
-[ "$(cat "$HOME/.zshrc")" = "$profile" ]
+[ "$(cat "$MARIONETTE_PROFILE")" = "$profile" ]
 [ "$(shasum -a 256 "$binary")" = "$original" ]
 
 export SHELL=/bin/bash
+export MARIONETTE_PROFILE="$sandbox/bash_profile"
 sh "$root/scripts/install-cli.sh"
-bash -c '. "$HOME/.bash_profile"; marionette --version' | grep -Fqx "$version"
+bash -c '. "$MARIONETTE_PROFILE"; marionette --version' | grep -Fqx "$version"
 printf 'macOS installer: install, startup PATH, upgrade and checksum failure passed.\n'

@@ -54,12 +54,14 @@ main() {
     # A piped installer cannot change its parent shell's environment.
     escaped_dir=$(printf '%s' "$install_dir" | sed "s/'/'\\\\''/g")
     path_line="export PATH='$escaped_dir':\"\$PATH\""
-    profile=
+    profile=${MARIONETTE_PROFILE:-}
     login_shell=${SHELL:-/bin/zsh}
-    case "${login_shell##*/}" in
-        zsh|'') profile=$HOME/.zshrc ;;
-        bash) profile=$HOME/.bash_profile ;;
-    esac
+    if [ -z "$profile" ]; then
+        case "${login_shell##*/}" in
+            zsh|'') profile=$HOME/.zshrc ;;
+            bash) profile=$HOME/.bash_profile ;;
+        esac
+    fi
     if [ -n "$profile" ]; then
         if [ ! -f "$profile" ] || ! grep -Fqx "$path_line" "$profile"; then
             printf '\n# Marionette CLI\n%s\n' "$path_line" >> "$profile"
