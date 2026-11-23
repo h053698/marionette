@@ -106,7 +106,21 @@ ADB가 자동으로 발견되지 않으면 경로를 지정합니다. Android St
 
 ### 웹에서 선택한 기기를 연결하는 경우
 
-CLI와 ADB 설치 및 토큰 설정을 먼저 마칩니다. 웹에서 **점유하고 조작 → Android Studio · ADB → 연결 명령 만들기**를 누르고, 생성된 `marionette attach --device ... --code ...` 명령을 실행합니다. 압축 폴더에서 실행할 때는 앞의 `marionette`를 macOS에서는 `./marionette`, Windows에서는 `.\marionette.exe`로 바꿉니다. 이후 위의 `adb` 연결 명령을 실행합니다.
+CLI와 ADB 설치 및 토큰 설정을 먼저 마칩니다. 웹에서 **점유하고 조작 → Android Studio · ADB → 연결 코드 만들기**를 누릅니다. 표시된 명령의 `--device`와 `--code` 값을 아래에 넣어 실행합니다.
+
+```sh
+# macOS
+./marionette attach --device "기기-ID" --code "연결-코드"
+./marionette adb
+```
+
+```powershell
+# Windows PowerShell
+.\marionette.exe attach --device "기기-ID" --code "연결-코드"
+.\marionette.exe adb
+```
+
+웹에서 복사하는 전체 명령은 macOS/Linux 셸 문법입니다. Windows에서는 앞 단계의 PowerShell 환경 변수 설정과 위 명령을 사용합니다.
 
 연결 코드는 90초 동안 한 번만 유효합니다. 만료되면 웹에서 새 코드를 만드세요. 웹과 CLI의 개인 토큰은 같은 계정이어야 하며, 넘겨받으면 브라우저의 조작 연결은 종료됩니다.
 
