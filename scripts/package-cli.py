@@ -21,6 +21,10 @@ def main():
         ["git", "rev-parse", "HEAD"], cwd=root, text=True
     ).strip()
     checksums = []
+    for source, name in [("install-cli.sh", "install.sh"), ("install-cli.ps1", "install.ps1")]:
+        content = (root / "scripts" / source).read_bytes()
+        (output / name).write_bytes(content)
+        checksums.append(f"{hashlib.sha256(content).hexdigest()}  {name}\n")
     with tempfile.TemporaryDirectory(prefix="cli-package-", dir=output) as staging:
         staging = Path(staging)
         for system, arch in [("darwin", "arm64"), ("darwin", "amd64"), ("windows", "amd64")]:

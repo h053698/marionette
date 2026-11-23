@@ -14,6 +14,8 @@ on:
       - 'go.mod'
       - 'go.sum'
       - 'scripts/package-cli.py'
+      - 'scripts/install-cli.*'
+      - 'scripts/test-install-cli.*'
       - 'docs/CLI_INSTALL.md'
       - '.github/workflows/release-cli.yml'
   workflow_dispatch:
@@ -41,8 +43,6 @@ jobs:
   package:
     needs: test
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -65,11 +65,44 @@ jobs:
           name: marionette-cli
           path: build/cli-release/*
           if-no-files-found: error
+
+  install-test:
+    needs: package
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: marionette-cli
+          path: build/cli-release
+      - name: Test macOS installation
+        if: runner.os == 'macOS'
+        run: sh scripts/test-install-cli.sh
+      - name: Test Windows PowerShell 5.1 installation
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: .\scripts\test-install-cli.ps1
+
+  publish:
+    needs: [package, install-test]
+    if: startsWith(github.ref, 'refs/tags/cli-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: marionette-cli
+          path: build/cli-release
       - name: Publish GitHub release
-        if: startsWith(github.ref, 'refs/tags/cli-v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: >-
-          gh release create "$GITHUB_REF_NAME" build/cli-release/*.zip build/cli-release/SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" build/cli-release/*.zip build/cli-release/install.sh build/cli-release/install.ps1 build/cli-release/SHA256SUMS
           --verify-tag --title "Marionette CLI ${GITHUB_REF_NAME#cli-}"
           --notes-file docs/CLI_RELEASE_NOTES.md --latest

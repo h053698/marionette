@@ -2,7 +2,30 @@
 
 사용자 PC에서 원격 Android 기기를 ADB와 Android Studio에 연결하는 CLI입니다. Go, Java 또는 Marionette 소스를 설치할 필요가 없습니다.
 
-## 1. CLI 다운로드
+## 1. 명령어로 CLI 설치
+
+macOS 터미널:
+
+```sh
+curl -fsSL https://github.com/h053698/marionette/releases/latest/download/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+marionette --version
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://github.com/h053698/marionette/releases/latest/download/install.ps1 | iex
+marionette --version
+```
+
+관리자 권한 없이 최신 버전을 설치합니다. Mac의 CPU 종류를 자동으로 선택하고, Windows는 Intel/AMD 64비트를 지원합니다. ZIP의 SHA-256을 검증한 뒤 macOS는 `~/.local/bin`, Windows는 `%LOCALAPPDATA%\Marionette\bin`에 실행 파일을 넣습니다.
+
+macOS는 zsh의 `~/.zshrc` 또는 Bash의 `~/.bash_profile`에 PATH를 등록합니다. 위 `export`는 현재 터미널에도 바로 적용하는 명령입니다. 다른 셸은 설치 완료 시 출력되는 PATH 설정을 직접 추가합니다. Windows는 사용자 PATH와 현재 PowerShell의 PATH를 함께 갱신합니다. 설치 전에 열어 둔 다른 터미널은 다시 여세요.
+
+**업데이트도 같은 설치 명령을 다시 실행하면 됩니다.** 개인 토큰과 `.marionette/session.json`은 설치 과정에서 변경하지 않습니다.
+
+### ZIP으로 직접 설치
 
 [GitHub Releases](https://github.com/h053698/marionette/releases/latest)에서 PC에 맞는 ZIP을 받아 압축을 풉니다.
 
@@ -12,18 +35,7 @@
 | macOS Intel | [marionette-cli-darwin-amd64.zip](https://github.com/h053698/marionette/releases/latest/download/marionette-cli-darwin-amd64.zip) |
 | Windows 64비트 (Intel / AMD) | [marionette-cli-windows-amd64.zip](https://github.com/h053698/marionette/releases/latest/download/marionette-cli-windows-amd64.zip) |
 
-압축을 푼 폴더에서 터미널 또는 PowerShell을 엽니다. 이 안내는 해당 폴더에서 실행하는 명령을 사용하므로 PATH 등록은 필요하지 않습니다.
-
-```sh
-# macOS
-chmod +x ./marionette
-./marionette --version
-```
-
-```powershell
-# Windows PowerShell
-.\marionette.exe --version
-```
+압축을 푼 폴더에서 터미널 또는 PowerShell을 엽니다. 아래 안내의 `marionette`를 macOS에서는 `./marionette`, Windows에서는 `.\marionette.exe`로 바꿔 실행하세요. macOS에서 실행 권한이 필요하면 `chmod +x ./marionette`를 한 번 실행합니다.
 
 실행 파일은 현재 코드 서명·공증되지 않았으므로 macOS 또는 Windows에서 실행 확인이 표시될 수 있습니다. 게시자와 다운로드 출처를 확인하고 운영체제의 실행 허용 절차를 따릅니다.
 
@@ -67,27 +79,27 @@ $env:MARIONETTE_TOKEN = [System.Net.NetworkCredential]::new("", (Read-Host "개�
 macOS:
 
 ```sh
-./marionette occupy --platform android
-./marionette adb
+marionette occupy --platform android
+marionette adb
 ```
 
 Windows:
 
 ```powershell
-.\marionette.exe occupy --platform android
-.\marionette.exe adb
+marionette occupy --platform android
+marionette adb
 ```
 
 ADB가 자동으로 발견되지 않으면 경로를 지정합니다. Android Studio의 SDK 위치를 바꿨다면 실제 경로를 사용하세요.
 
 ```sh
 # macOS Android Studio 기본 SDK 위치
-./marionette adb --adb "$HOME/Library/Android/sdk/platform-tools/adb"
+marionette adb --adb "$HOME/Library/Android/sdk/platform-tools/adb"
 ```
 
 ```powershell
 # Windows Android Studio 기본 SDK 위치
-.\marionette.exe adb --adb "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+marionette adb --adb "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 ```
 
 명령이 출력한 `127.0.0.1:<포트>`가 로컬 ADB에 연결됩니다. Android Studio에서는 연결된 기기를 선택합니다. ADB 명령을 직접 쓸 때는 같은 ADB 실행 파일과 출력된 주소를 사용합니다. 예: `adb -s 127.0.0.1:15555 shell`.
@@ -96,12 +108,12 @@ ADB가 자동으로 발견되지 않으면 경로를 지정합니다. Android St
 
 ```sh
 # macOS
-./marionette release
+marionette release
 ```
 
 ```powershell
 # Windows
-.\marionette.exe release
+marionette release
 ```
 
 ### 웹에서 선택한 기기를 연결하는 경우
@@ -110,14 +122,14 @@ CLI와 ADB 설치 및 토큰 설정을 먼저 마칩니다. 웹에서 **점유�
 
 ```sh
 # macOS
-./marionette attach --device "기기-ID" --code "연결-코드"
-./marionette adb
+marionette attach --device "기기-ID" --code "연결-코드"
+marionette adb
 ```
 
 ```powershell
 # Windows PowerShell
-.\marionette.exe attach --device "기기-ID" --code "연결-코드"
-.\marionette.exe adb
+marionette attach --device "기기-ID" --code "연결-코드"
+marionette adb
 ```
 
 웹에서 복사하는 전체 명령은 macOS/Linux 셸 문법입니다. Windows에서는 앞 단계의 PowerShell 환경 변수 설정과 위 명령을 사용합니다.

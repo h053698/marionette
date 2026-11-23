@@ -1,20 +1,24 @@
-macOS·Windows 사용자 PC에서 원격 Android 기기를 ADB와 Android Studio에 연결하는 Marionette CLI 첫 배포입니다.
+macOS 터미널과 Windows PowerShell에서 CLI를 설치하고 업데이트할 수 있습니다. 최신 버전의 ZIP을 내려받아 SHA-256을 확인하고, 관리자 권한 없이 사용자 폴더에 설치한 뒤 PATH에 등록합니다.
 
-| PC | 다운로드 파일 |
-| --- | --- |
-| macOS Apple Silicon (M 시리즈) | `marionette-cli-darwin-arm64.zip` |
-| macOS Intel | `marionette-cli-darwin-amd64.zip` |
-| Windows 64비트 (Intel / AMD) | `marionette-cli-windows-amd64.zip` |
+macOS:
 
-각 ZIP에는 CLI 실행 파일, 한국어 설치 안내 `README.md`, 버전·소스 커밋 정보 `VERSION`이 들어 있습니다. Go나 소스 설치 없이 실행할 수 있습니다. ADB는 Android Studio의 SDK Manager 또는 Google 공식 Platform-Tools로 별도 설치합니다.
+```sh
+curl -fsSL https://github.com/h053698/marionette/releases/latest/download/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+marionette --version
+```
 
-**[macOS / Windows 설치 안내](https://github.com/h053698/marionette/blob/cli-v0.1.0/docs/CLI_INSTALL.md)**
+Windows PowerShell:
 
-1. OS에 맞는 ZIP을 내려받아 압축을 풉니다.
-2. ADB를 준비하고 웹 콘솔의 **API / MCP**에서 개인 토큰을 발급합니다.
-3. 서버 주소와 토큰을 설정한 뒤 `marionette occupy --platform android` → `marionette adb`를 실행합니다. 웹에서 선택한 기기는 웹에서 생성한 `attach` 명령으로 넘겨받습니다.
-4. 연결 명령을 켜 둔 상태로 사용하고, 사용을 마치면 `marionette release`로 반납합니다.
+```powershell
+irm https://github.com/h053698/marionette/releases/latest/download/install.ps1 | iex
+marionette --version
+```
 
-Windows의 기본 Android SDK 경로·`adb.exe` 자동 탐색과 세션 ACL 처리를 포함합니다. macOS에서는 기존 0600 세션 파일 권한 검사를 유지합니다. `marionette --version`으로 버전과 소스 커밋을 확인할 수 있습니다.
+같은 명령을 다시 실행하면 업데이트됩니다. macOS는 `~/.local/bin`과 zsh/Bash 설정, Windows는 `%LOCALAPPDATA%\Marionette\bin`과 사용자·현재 프로세스 PATH를 사용합니다. 개인 토큰과 기기 세션은 변경하지 않습니다.
 
-`SHA256SUMS`는 ZIP의 SHA-256 체크섬입니다. 실행 파일은 코드 서명·공증되지 않았습니다. Windows의 실제 원격 기기 연결과 Android Studio 자체의 실행·디버깅 UI는 이번 릴리즈의 실기기 검증 범위에 포함하지 않습니다. `adb reverse`는 지원하지 않습니다.
+macOS Apple Silicon·Intel, Windows Intel/AMD 64비트 ZIP도 함께 제공합니다. 각 ZIP에는 실행 파일, 한국어 설치 안내, 버전·소스 커밋이 들어 있습니다. ADB는 Android Studio의 SDK Manager 또는 [Google 공식 Platform-Tools](https://developer.android.com/tools/releases/platform-tools)로 별도 설치합니다.
+
+**[전체 설치·기기 연결 안내](https://github.com/h053698/marionette/blob/main/docs/CLI_INSTALL.md)**
+
+맥과 Windows PowerShell 5.1에서 설치·재설치·PATH 등록·체크섬 불일치 시 기존 설치 보존을 자동 검증합니다. Windows의 실제 원격 기기 연결과 Android Studio 실행·디버깅 UI는 별도 환경 검증이 필요합니다. 실행 파일은 코드 서명·공증되지 않았습니다. `adb reverse`는 지원하지 않습니다.
